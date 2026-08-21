@@ -6,6 +6,7 @@ import { handleInteraction } from './events/interactionCreate';
 import { handleReady } from './events/ready';
 import { startApiServer } from './api/server';
 import { handleStaffApplyMessage } from './services/staffApplicationService';
+import { printStartupBanner } from './utils/banner';
 
 const client = new Client({
   intents: [
@@ -22,12 +23,8 @@ process.on('unhandledRejection', (error) => {
 
 async function main() {
   try {
-    try {
-      await prisma.$connect();
-      console.log('✅ Connected to SQLite database (database.db)');
-    } catch (dbError) {
-      console.error('⚠️ Failed to connect to database. Commands requiring DB will fail:', dbError);
-    }
+    // Print stylish startup banner, verify license & check auto-updater
+    await printStartupBanner();
 
     // Load commands before registering
     loadCommands(client);
