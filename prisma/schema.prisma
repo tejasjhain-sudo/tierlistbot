@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model VerificationSession {
+  id                String    @id @default(cuid())
+  discordId         String
+  token             String    @unique
+  status            String    @default("PENDING") // PENDING, VERIFIED, EXPIRED, CANCELLED
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  minecraftUuid     String?
+  minecraftUsername String?
+  createdAt         DateTime  @default(now())
+
+  @@index([discordId])
+  @@index([token])
+}
+
+model GuildConfig {
+  id              String   @id @default(cuid())
+  guildId         String   @unique
+  categoryIds     Json?
+  channelIds      Json?
+  roleIds         Json?
+  panelMessageIds Json?
+  settings        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Player {
+  id                     String        @id @default(cuid())
+  discordId              String        @unique
+  minecraftUsername      String
+  minecraftUsernameLower String        @unique
+  minecraftUuid          String?
+  region                 String        // AS, EU, NA, AU, SA, ME
+  preferredMode          String        // sword, axe, nethpot, dpot, uhc, smp, crystal, mace
+  registeredAt           DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  isBanned               Boolean       @default(false)
+  banReason              String?
+  waitlistRoleCooldowns  Json?
+  lastIgnUpdateAt        DateTime?
+  discordAccessToken     String?
+  discordRefreshToken    String?
+  discordTokenExpiresAt  DateTime?
+  tiers                  PlayerTier[]
+  queueEntries           QueueEntry[]
+  testSessions           TestSession[]
+  tierHistory            TierHistory[]
+
+  @@index([discordId])
+  @@index([minecraftUsernameLower])
+}
+
+model PlayerTier {
+  id                  String    @id @default(cuid())
+  playerId            String
+  mode                String    // sword, axe, nethpot, dpot, uhc, smp, crystal, mace
+  currentTier         String    // HT1-HT5, LT1-LT5, Unranked
+  previousTier        String?
+  lastTesterDiscordId String?
+  lastTestedAt        DateTime?
+  updatedAt           DateTime  @updatedAt
+  player              Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, mode])
+  @@index([currentTier])
+}
+
+model QueueEntry {
+  id               String    @id @default(cuid())
+  playerId         String
+  guildId          String
+  mode             String    // sword, axe, nethpot, etc.
+  region           String    // AS, EU, NA, etc.
+  position         Int?
+  status           String    @default("WAITING") // WAITING, CLAIMED
+  joinedAt         DateTime  @default(now())
+  lockedAt         DateTime?
+  lockedByTesterId String?
+  skippedCount     Int       @default(0)
+  player           Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([mode, status, joinedAt])
+  @@index([region])
+}
+
+model Tester {
+  id           String    @id @default(cuid())
+  discordId    String    @unique
+  guildId      String
+  active       Boolean   @default(false)
+  activeMode   String?
+  activeRegion String?
+  startedAt    DateTime?
+  lastActiveAt DateTime?
+}
+
+model TestSession {
+  id              String    @id @default(cuid())
+  guildId         String
+  playerId        String
+  testerDiscordId String
+  mode            String
+  region          String
+  ticketChannelId String?
+  status          String    @default("ACTIVE") // ACTIVE, COMPLETED, SKIPPED, CANCELLED
+  previousTier    String?
+  earnedTier      String?
+  notes           String?
+  evidenceUrl     String?
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  skippedAt       DateTime?
+  skipReason      String?
+  cancelledAt     DateTime?
+  player          Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model TierHistory {
+  id              String   @id @default(cuid())
+  playerId        String
+  testerDiscordId String
+  guildId         String
+  mode            String
+  region          String
+  previousTier    String?
+  earnedTier      String
+  notes           String?
+  evidenceUrl     String?
+  sessionId       String?
+  createdAt       DateTime @default(now())
+  player          Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  guildId         String
+  actorDiscordId  String
+  action          String
+  targetDiscordId String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+}
+
+model Blacklist {
+  id             String   @id @default(cuid())
+  guildId        String
+  discordId      String
+  reason         String?
+  actorDiscordId String
+  createdAt      DateTime @default(now())
+
+  @@unique([guildId, discordId])
+}
+
+model StaffApplication {
+  id          String   @id @default(cuid())
+  guildId     String
+  discordId   String   @unique
+  answers     Json?
+  currentStep Int      @default(0)
+  channelId   String?
+  status      String   @default("APPLYING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

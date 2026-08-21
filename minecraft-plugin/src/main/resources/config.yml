@@ -1,0 +1,10 @@
+# RearMC Verification Plugin Configuration
+
+# URL of the REST API endpoint (where your Discord bot is hosted)
+api-url: "http://wings.rearmc.fun:2000/api/verification/complete"
+
+# Secret API key matching process.env.API_SECRET in your Discord bot
+api-secret: "super_secret_api_key"
+
+# Server branding name shown in messages
+server-name: "verify.rearmc.fun"

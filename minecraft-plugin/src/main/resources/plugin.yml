@@ -1,0 +1,13 @@
+name: RearMCVerify
+version: 1.0.0
+main: fun.rearmc.verify.RearMCVerify
+api-version: '1.20'
+author: RearmC Team
+description: RearmC Discord to Minecraft Verification System Plugin
+softdepend: [AuthMe, LoginSecurity, nLogin]
+
+commands:
+  verify:
+    description: Verify your Minecraft account using the token generated in Discord.
+    usage: /verify <TOKEN>
+    aliases: [link, discordlink]
