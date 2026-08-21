@@ -10,7 +10,7 @@ import { COLORS } from '../config/constants';
 
 export function getBackupAuthUrl(): string {
   const redirectUri = `${config.publicApiUrl}/api/auth/callback`;
-  return `https://discord.com/api/oauth2/authorize?client_id=${config.discordClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20guilds.join`;
+  return `https://discord.com/oauth2/authorize?client_id=${config.discordClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds.join&prompt=consent`;
 }
 
 /**

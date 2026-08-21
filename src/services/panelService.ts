@@ -515,7 +515,7 @@ export async function sendOrUpdateVerificationAuthPanel(guild: Guild): Promise<v
       }
       if (!channel) return;
 
-      const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${config.discordClientId}&redirect_uri=${encodeURIComponent(config.publicApiUrl + '/api/auth/callback')}&response_type=code&scope=identify%20guilds.join`;
+      const authUrl = `https://discord.com/oauth2/authorize?client_id=${config.discordClientId}&response_type=code&redirect_uri=${encodeURIComponent(config.publicApiUrl + '/api/auth/callback')}&scope=identify+guilds.join&prompt=consent`;
 
       const embed = new EmbedBuilder()
         .setTitle('🛡️ Server Verification')
