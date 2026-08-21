@@ -52,10 +52,10 @@ export async function printStartupBanner(): Promise<void> {
   }
 
   // Step 3: Database Connection
-  console.log('\x1b[33m' + ` [3/3] 📁 Initializing SQLite Database...` + '\x1b[0m');
+  console.log('\x1b[33m' + ` [3/3] 🌐 Connecting to Supabase PostgreSQL Database...` + '\x1b[0m');
   try {
     await prisma.$connect();
-    console.log('\x1b[32m' + `       ✔ SQLite Database (database.db) Connected Successfully` + '\x1b[0m');
+    console.log('\x1b[32m' + `       ✔ Supabase PostgreSQL Database Connected Successfully` + '\x1b[0m');
   } catch (err) {
     console.log('\x1b[31m' + `       ✖ Database Connection Error: ${err}` + '\x1b[0m');
   }
