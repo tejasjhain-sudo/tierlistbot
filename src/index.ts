@@ -6,6 +6,7 @@ import { handleInteraction } from './events/interactionCreate';
 import { handleReady } from './events/ready';
 import { startApiServer } from './api/server';
 import { handleStaffApplyMessage } from './services/staffApplicationService';
+import { handleGuildMemberAdd } from './events/guildMemberAdd';
 import { printStartupBanner } from './utils/banner';
 
 const client = new Client({
@@ -50,6 +51,10 @@ async function main() {
 
     client.on('messageCreate', (message) => {
       handleStaffApplyMessage(message);
+    });
+
+    client.on('guildMemberAdd', (member) => {
+      handleGuildMemberAdd(member);
     });
 
     // Start REST API

@@ -123,3 +123,68 @@ export async function setTicketPermissions(
     }
   }
 }
+
+// ─── Automatically sync a single member's registered role & mode tier roles ────
+export async function syncGuildMemberRoles(member: GuildMember): Promise<boolean> {
+  try {
+    const player = await prisma.player.findUnique({
+      where: { discordId: member.id },
+      include: { tiers: true },
+    });
+    if (!player) return false;
+
+    // 1. Give Registered role
+    await giveRegisteredRole(member);
+
+    // 2. Assign tier roles for each ranked gamemode
+    if (player.tiers && player.tiers.length > 0) {
+      for (const t of player.tiers) {
+        if (t.currentTier && t.currentTier !== 'Unranked') {
+          await updateTierRole(member, t.mode as Mode, null, t.currentTier as Tier);
+        }
+      }
+    }
+
+    return true;
+  } catch (e) {
+    console.warn(`[Auto-Sync] Could not sync roles for member ${member.user.tag}:`, e);
+    return false;
+  }
+}
+
+// ─── Automatically sync all database registered players present in a guild ───
+export async function syncAllGuildMembers(guild: Guild): Promise<{ synced: number, total: number }> {
+  try {
+    const players = await prisma.player.findMany({
+      include: { tiers: true },
+    });
+
+    if (players.length === 0) return { synced: 0, total: 0 };
+
+    await guild.members.fetch().catch(() => {});
+
+    let syncedCount = 0;
+    for (const p of players) {
+      const member = guild.members.cache.get(p.discordId);
+      if (!member) continue;
+
+      await giveRegisteredRole(member);
+
+      if (p.tiers && p.tiers.length > 0) {
+        for (const t of p.tiers) {
+          if (t.currentTier && t.currentTier !== 'Unranked') {
+            await updateTierRole(member, t.mode as Mode, null, t.currentTier as Tier);
+          }
+        }
+      }
+
+      syncedCount++;
+    }
+
+    return { synced: syncedCount, total: players.length };
+  } catch (e) {
+    console.error(`[Auto-Sync] Error during guild members role sync:`, e);
+    return { synced: 0, total: 0 };
+  }
+}
+

@@ -353,4 +353,153 @@ export async function pingTestingClosed(
   await setPanelMsgId(guild.id, ['waitlists', mode], msg.id);
 }
 
+// ─── Support Panel ────────────────────────────────────────────────────────────
+export async function sendOrUpdateSupportPanel(guild: Guild): Promise<void> {
+  const lockKey = `support:${guild.id}`;
+  const previousPromise = panelUpdateQueues.get(lockKey) || Promise.resolve();
+
+  const currentPromise = previousPromise.then(async () => {
+    try {
+      const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+      if (!guildConfig) return;
+
+      const channelIds = (guildConfig.channelIds as Record<string, any>) ?? {};
+      const supportChId = channelIds.support;
+      let channel: TextChannel | undefined;
+
+      if (supportChId) {
+        channel = guild.channels.cache.get(supportChId) as TextChannel | undefined;
+      }
+      if (!channel) {
+        channel = guild.channels.cache.find(c => c.isTextBased() && (c.name.includes('request-support') || c.name.includes('support'))) as TextChannel | undefined;
+      }
+      if (!channel) return;
+
+      const embed = new EmbedBuilder()
+        .setTitle('🛠️ RearMC Server Support')
+        .setDescription(
+          `Need assistance from the RearMC Support Team?\n\n` +
+          `• **General Queries & Help**\n` +
+          `• **Tier Rank Verification Issues**\n` +
+          `• **Bug Reports & Feedback**\n\n` +
+          `Click **Request Support** below to open a private ticket!`
+        )
+        .setColor(COLORS.PRIMARY)
+        .setTimestamp();
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('request_support_prompt')
+          .setLabel('🛠️ Request Support')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      const panelMessageIds = (guildConfig.panelMessageIds as Record<string, any>) ?? {};
+
+      if (panelMessageIds.support) {
+        try {
+          const existing = await channel.messages.fetch(panelMessageIds.support);
+          await existing.edit({ embeds: [embed], components: [row] });
+          return;
+        } catch (err) {
+          if (!(err instanceof DiscordAPIError && err.code === 10008)) throw err;
+          console.warn(`[${guild.name}] Support panel message gone, sending new one.`);
+        }
+      }
+
+      const msg = await channel.send({ embeds: [embed], components: [row] });
+      panelMessageIds.support = msg.id;
+
+      await prisma.guildConfig.update({
+        where: { guildId: guild.id },
+        data: { panelMessageIds },
+      });
+    } catch (e) {
+      console.error(`Error updating support panel:`, e);
+    }
+  });
+
+  panelUpdateQueues.set(lockKey, currentPromise);
+  await currentPromise;
+}
+
+// ─── Tester Application Panel ────────────────────────────────────────────────
+export async function sendOrUpdateTesterAppPanel(guild: Guild): Promise<void> {
+  const lockKey = `tester_app:${guild.id}`;
+  const previousPromise = panelUpdateQueues.get(lockKey) || Promise.resolve();
+
+  const currentPromise = previousPromise.then(async () => {
+    try {
+      const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+      if (!guildConfig) return;
+
+      const channelIds = (guildConfig.channelIds as Record<string, any>) ?? {};
+      const appChId = channelIds.applications;
+      let channel: TextChannel | undefined;
+
+      if (appChId) {
+        channel = guild.channels.cache.get(appChId) as TextChannel | undefined;
+      }
+      if (!channel) {
+        channel = guild.channels.cache.find(c => c.isTextBased() && (c.name.includes('applications') || c.name.includes('apply'))) as TextChannel | undefined;
+      }
+      if (!channel) return;
+
+      const embed = new EmbedBuilder()
+        .setTitle('📝 Tier Tester Applications')
+        .setDescription(
+          `Want to join the RearMC Tierlist Staff Team as an official **Tier Tester**?\n\n` +
+          `• **Requirements:** Authentic gameplay knowledge, activity, and objective testing.\n` +
+          `• **Responsibilities:** Evaluate players in queue, issue accurate tiers, and update test logs.\n\n` +
+          `Click **Apply for Tester** below to submit your application!`
+        )
+        .setColor(COLORS.PRIMARY)
+        .setTimestamp();
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('apply_tester_prompt')
+          .setLabel('📝 Apply for Tester')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      const panelMessageIds = (guildConfig.panelMessageIds as Record<string, any>) ?? {};
+
+      if (panelMessageIds.testerApp) {
+        try {
+          const existing = await channel.messages.fetch(panelMessageIds.testerApp);
+          await existing.edit({ embeds: [embed], components: [row] });
+          return;
+        } catch (err) {
+          if (!(err instanceof DiscordAPIError && err.code === 10008)) throw err;
+          console.warn(`[${guild.name}] Tester app panel message gone, sending new one.`);
+        }
+      }
+
+      const msg = await channel.send({ embeds: [embed], components: [row] });
+      panelMessageIds.testerApp = msg.id;
+
+      await prisma.guildConfig.update({
+        where: { guildId: guild.id },
+        data: { panelMessageIds },
+      });
+    } catch (e) {
+      console.error(`Error updating tester application panel:`, e);
+    }
+  });
+
+  panelUpdateQueues.set(lockKey, currentPromise);
+  await currentPromise;
+}
+
+// ─── Master function to check and send/update ALL panels across the server ─────
+export async function sendOrUpdateAllServerPanels(guild: Guild): Promise<void> {
+  await Promise.allSettled([
+    sendOrUpdateRegistrationPanel(guild),
+    sendOrUpdateSupportPanel(guild),
+    sendOrUpdateTesterAppPanel(guild),
+    sendOrUpdateAllWaitlistPanels(guild),
+  ]);
+}
+
 // END OF FILE

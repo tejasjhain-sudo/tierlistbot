@@ -1,6 +1,7 @@
 import { Client, Guild, ActivityType } from 'discord.js';
 import prisma from '../database/prisma';
-import { sendOrUpdateRegistrationPanel, sendOrUpdateAllWaitlistPanels } from '../services/panelService';
+import { sendOrUpdateAllServerPanels } from '../services/panelService';
+import { syncAllGuildMembers } from '../services/roleService';
 import { stopTesting } from '../services/testerService';
 import { SessionStatus } from '../config/constants';
 
@@ -65,12 +66,21 @@ async function restoreGuild(guild: Guild) {
   // This prevents false "Unknown Message" errors that would cause duplicate panels to be sent.
   await new Promise(resolve => setTimeout(resolve, 3000));
 
-  // Restore panels
+  // Restore all panels (Registration, Support, Tester App, Waitlists)
   try {
-    await sendOrUpdateRegistrationPanel(guild);
-    await sendOrUpdateAllWaitlistPanels(guild);
+    await sendOrUpdateAllServerPanels(guild);
   } catch (e) {
     console.error(`[${guild.name}] Failed to restore panels:`, e);
+  }
+
+  // Automatically sync Registered & Tier roles for all members present
+  try {
+    const { synced } = await syncAllGuildMembers(guild);
+    if (synced > 0) {
+      console.log(`[${guild.name}] Automatically synced Registered & Tier roles for ${synced} members.`);
+    }
+  } catch (e) {
+    console.error(`[${guild.name}] Failed to auto-sync members:`, e);
   }
 
   // Do not mark testers as inactive on restart, so testing sessions persist across bot restarts

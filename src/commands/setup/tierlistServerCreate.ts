@@ -10,7 +10,10 @@ import {
 } from 'discord.js';
 import prisma from '../../database/prisma';
 import { COLORS, MODES, TIERS, TIER_COLORS } from '../../config/constants';
-import { Mode, Tier } from '../../config/constants';
+import { Mode, Region, Tier } from '../../config/constants';
+import { sendOrUpdateAllServerPanels } from '../../services/panelService';
+import { syncAllGuildMembers } from '../../services/roleService';
+import { buildResultEmbed } from '../../services/ticketService';
 
 export default {
   data: new SlashCommandBuilder()
@@ -21,6 +24,18 @@ export default {
       opt
         .setName('clean_first')
         .setDescription('Delete existing old channels before creating new layout? (Default: False)')
+        .setRequired(false)
+    )
+    .addBooleanOption(opt =>
+      opt
+        .setName('sync_roles')
+        .setDescription('Auto-assign Registered & Tier roles to all existing members? (Default: True)')
+        .setRequired(false)
+    )
+    .addBooleanOption(opt =>
+      opt
+        .setName('sync_results')
+        .setDescription('Post all past tier test results into the results channels? (Default: False)')
         .setRequired(false)
     ),
 
@@ -125,6 +140,8 @@ export default {
     await getOrCreateChannel(guild, '📩・staff-applications', ChannelType.GuildText, catRequests.id, true, staffRoleIds);
 
     channelIdMap.register = reqTestCh.id;
+    channelIdMap.support = reqSuppCh.id;
+    channelIdMap.applications = reqAppCh.id;
 
     // Category 3: ' | Tierlists
     const catTierlists = await getOrCreateCategory(guild, "' | Tierlists");
@@ -284,6 +301,63 @@ export default {
       },
     });
 
+    // ─── 8. Automatically Deploy All Server Panels ───────────────────────────
+    try {
+      await sendOrUpdateAllServerPanels(guild);
+    } catch (panelErr) {
+      console.error('Error auto-deploying server panels:', panelErr);
+    }
+
+    // ─── 9. Automatically Sync Registered & Tier Roles ───────────────────────
+    const syncRoles = interaction.options.getBoolean('sync_roles') ?? true;
+    let syncedMembersCount = 0;
+    if (syncRoles) {
+      try {
+        const syncResult = await syncAllGuildMembers(guild);
+        syncedMembersCount = syncResult.synced;
+      } catch (syncErr) {
+        console.error('Error auto-syncing members during setup:', syncErr);
+      }
+    }
+
+    // ─── 10. Automatically Sync Past Tier Test Results if Requested ──────────
+    const syncResults = interaction.options.getBoolean('sync_results') ?? false;
+    let resultsPostedCount = 0;
+    if (syncResults) {
+      try {
+        const historyRecords = await prisma.tierHistory.findMany({
+          include: { player: true },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        for (const record of historyRecords) {
+          const isHigh = ['HT1', 'HT2', 'HT3', 'HT4'].includes(record.earnedTier);
+          const destCh = (isHigh && highResultsCh) ? highResultsCh : resultsCh;
+          const earnedTierRoleId = tierRoleMap[record.mode]?.[record.earnedTier];
+
+          const resultEmbed = buildResultEmbed({
+            minecraftUsername: record.player.minecraftUsername,
+            minecraftUuid: record.player.minecraftUuid,
+            testerDiscordId: record.testerDiscordId,
+            mode: record.mode as Mode,
+            region: record.region as Region,
+            previousTier: (record.previousTier as Tier) || null,
+            earnedTier: record.earnedTier as Tier,
+            earnedTierRoleId,
+            sessionId: record.sessionId ?? record.id,
+            notes: record.notes ?? undefined,
+            evidenceUrl: record.evidenceUrl ?? undefined,
+          });
+
+          await destCh.send({ embeds: [resultEmbed] });
+          resultsPostedCount++;
+          await new Promise(r => setTimeout(r, 200));
+        }
+      } catch (resErr) {
+        console.error('Error auto-posting results during setup:', resErr);
+      }
+    }
+
     const embed = new EmbedBuilder()
       .setTitle('🚀 Minecraft Tierlist Server Setup Complete!')
       .setDescription(
@@ -302,7 +376,10 @@ export default {
         `• **8 Kit Tester Roles** (Sword, Axe, Nethpot, Dpot, UHC, SMP, Crystal, Mace)\n` +
         `• **80 Tier Roles** (HT1–HT5, LT1–LT5 per gamemode)\n` +
         `• **8 Waitlist Roles**\n\n` +
-        `💡 **Next Step:** You can deploy panels anytime using \`/panel send\` and \`/send-support-panel\`!`
+        `### ⚡ **Automations Executed:**\n` +
+        `• ✅ **Panels Deployed:** Registration, Support, Tester Applications & Waitlist panels are live!\n` +
+        `• 👥 **Roles Synced:** \`${syncedMembersCount}\` members received their Registered & Tier roles\n` +
+        (syncResults ? `• 📜 **Results Posted:** \`${resultsPostedCount}\` past results posted\n` : '')
       )
       .setColor(COLORS.SUCCESS)
       .setTimestamp();
