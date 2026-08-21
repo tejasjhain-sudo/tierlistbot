@@ -11,6 +11,7 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { Mode, Region, Tier } from '../../config/constants';
+import { config } from '../../config';
 import prisma from '../../database/prisma';
 import { joinQueue, leaveAllQueues, leaveQueue } from '../../services/queueService';
 import { giveRegisteredRole, swapWaitlistRole } from '../../services/roleService';
@@ -215,7 +216,7 @@ export async function handleQueueJoin(interaction: ButtonInteraction, mode: Mode
   await interaction.deferReply({ ephemeral: true });
 
   // 1. Enforce Main Server Membership
-  const mainServerId = process.env.DISCORD_GUILD_ID || '1136644989380726784';
+  const mainServerId = config.discordGuildId || '1540377478307123350';
   if (interaction.guild.id !== mainServerId) {
     try {
       const mainGuild = await interaction.client.guilds.fetch(mainServerId);
@@ -470,7 +471,7 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
   if (!interaction.guild) return interaction.editReply({ content: '❌ Must be used in a server.' });
 
   // 1. Enforce Main Server Membership
-  const mainServerId = process.env.DISCORD_GUILD_ID || '1136644989380726784';
+  const mainServerId = config.discordGuildId || '1540377478307123350';
   if (interaction.guild.id !== mainServerId) {
     try {
       const mainGuild = await interaction.client.guilds.fetch(mainServerId);
