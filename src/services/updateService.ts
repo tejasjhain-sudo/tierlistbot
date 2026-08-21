@@ -57,7 +57,6 @@ export async function checkGitUpdates(): Promise<UpdateStatus> {
   const currentCommit = getLocalCommit();
 
   try {
-    // 1. Fetch remote package.json and latest commit via HTTPS
     const [rawPkgRes, commitRes] = await Promise.all([
       fetch(RAW_PACKAGE_URL, { headers: { 'User-Agent': 'RearMC-AutoUpdater' } }),
       fetch(API_COMMITS_URL, { headers: { 'User-Agent': 'RearMC-AutoUpdater' } }),
@@ -78,7 +77,6 @@ export async function checkGitUpdates(): Promise<UpdateStatus> {
       if (commitData.commit?.message) commitMessage = commitData.commit.message;
     }
 
-    // Determine if update is available
     const hasUpdate =
       latestVersion !== currentVersion ||
       (currentCommit !== 'Production' && latestCommit !== 'Production' && latestCommit !== currentCommit);
@@ -110,14 +108,14 @@ export async function performGitUpdate(): Promise<{ success: boolean; logs: stri
   try {
     const logs: string[] = [];
 
-    // Ensure git is configured if .git is missing
+    // 1. Ensure git repository is initialized
     if (!fs.existsSync(path.join(ROOT_DIR, '.git'))) {
       try {
         await execAsync(`git init && git remote add origin https://github.com/${GITHUB_REPO}.git`, { cwd: ROOT_DIR });
       } catch {}
     }
 
-    // 1. Pull latest commits from GitHub
+    // 2. Pull latest code from GitHub
     try {
       const { stdout: pullOut, stderr: pullErr } = await execAsync(
         `git fetch origin main && git reset --hard origin/main`,
@@ -125,18 +123,30 @@ export async function performGitUpdate(): Promise<{ success: boolean; logs: stri
       );
       logs.push(`[git pull]\n${pullOut || pullErr}`);
     } catch (gitErr: any) {
-      // Fallback: git pull
-      const { stdout: pullOut } = await execAsync(`git pull origin main --force || git pull`, { cwd: ROOT_DIR });
-      logs.push(`[git pull]\n${pullOut}`);
+      try {
+        const { stdout: pullOut } = await execAsync(`git pull origin main --force`, { cwd: ROOT_DIR });
+        logs.push(`[git pull fallback]\n${pullOut}`);
+      } catch (fallbackErr: any) {
+        logs.push(`[git warning]\n${fallbackErr.message || String(fallbackErr)}`);
+      }
     }
 
-    // 2. Install dependencies
-    const { stdout: installOut } = await execAsync('npm install --no-audit --no-fund', { cwd: ROOT_DIR });
-    logs.push(`[npm install]\n${installOut}`);
+    // 3. Install production dependencies (including typescript and prisma)
+    try {
+      const { stdout: installOut } = await execAsync('npm install --no-audit --no-fund', { cwd: ROOT_DIR });
+      logs.push(`[npm install]\n${installOut}`);
+    } catch (installErr: any) {
+      logs.push(`[npm install warning]\n${installErr.message || String(installErr)}`);
+    }
 
-    // 3. Rebuild TypeScript
-    const { stdout: buildOut } = await execAsync('npm run build', { cwd: ROOT_DIR });
-    logs.push(`[npm run build]\n${buildOut || 'Build completed successfully.'}`);
+    // 4. Rebuild TypeScript using local bin or npx
+    try {
+      const { stdout: buildOut } = await execAsync('npx tsc || ./node_modules/.bin/tsc || npm run build', { cwd: ROOT_DIR });
+      logs.push(`[tsc build]\n${buildOut || 'Build succeeded'}`);
+    } catch (buildErr: any) {
+      const errMsg = buildErr.stderr || buildErr.stdout || buildErr.message || 'Compilation failed';
+      throw new Error(`TypeScript build error: ${errMsg}`);
+    }
 
     return {
       success: true,
@@ -146,7 +156,7 @@ export async function performGitUpdate(): Promise<{ success: boolean; logs: stri
     return {
       success: false,
       logs: '',
-      error: err.message || String(err),
+      error: err.stderr || err.stdout || err.message || String(err),
     };
   }
 }
