@@ -64,7 +64,7 @@ export default {
       }
     }
 
-    // ─── 1. Create Base Management & Staff Roles ─────────────────────────────
+    // ─── 1. Create Base Management, Verification & Staff Roles ──────────────
     const adminRole = await getOrCreateRole(guild, 'Tier Admin', '#E74C3C', true, [
       PermissionFlagsBits.Administrator,
     ]);
@@ -77,6 +77,8 @@ export default {
     ]);
     const generalTesterRole = await getOrCreateRole(guild, 'Tier Tester', '#00FFAA', true);
     const registeredRole = await getOrCreateRole(guild, 'Registered', '#3498DB', false);
+    const authorisedRole = await getOrCreateRole(guild, 'Authorised', '#2ECC71', true);
+    const unauthorisedRole = await getOrCreateRole(guild, 'Unauthorised', '#7F8C8D', false);
 
     // ─── 2. Create Kit Tester Roles ──────────────────────────────────────────
     const testerRoleMap: Record<string, string> = {};
@@ -114,13 +116,92 @@ export default {
 
     const staffRoleIds = [adminRole.id, managerRole.id, generalTesterRole.id, ...Object.values(testerRoleMap)];
 
-    // ─── 6. Create Categories & Channels ─────────────────────────────────────
+    // ─── 6. Create Categories & Channels with Gated Access ───────────────────
     const channelIdMap: Record<string, any> = {
       waitlists: {},
     };
 
+    // Category 0: ' | Verification (ONLY visible to Unauthorised / @everyone)
+    const catVerify = await getOrCreateCategory(guild, "' | Verification", [
+      {
+        id: guild.roles.everyone.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+        deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
+      },
+      {
+        id: unauthorisedRole.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+        deny: [PermissionFlagsBits.SendMessages],
+      },
+      {
+        id: authorisedRole.id,
+        type: OverwriteType.Role,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+    ]);
+
+    const verifyCh = await getOrCreateChannel(
+      guild,
+      '🔒・verify',
+      ChannelType.GuildText,
+      catVerify.id,
+      false,
+      [],
+      [
+        {
+          id: guild.roles.everyone.id,
+          type: OverwriteType.Role,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+          deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
+        },
+        {
+          id: unauthorisedRole.id,
+          type: OverwriteType.Role,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+          deny: [PermissionFlagsBits.SendMessages],
+        },
+        {
+          id: authorisedRole.id,
+          type: OverwriteType.Role,
+          deny: [PermissionFlagsBits.ViewChannel],
+        },
+      ]
+    );
+    channelIdMap.verifyChannel = verifyCh.id;
+
+    // Base permissions for public categories: hidden from @everyone & Unauthorised, visible to Authorised
+    const publicCatOverwrites: OverwriteResolvable[] = [
+      {
+        id: guild.roles.everyone.id,
+        type: OverwriteType.Role,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: unauthorisedRole.id,
+        type: OverwriteType.Role,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
+      {
+        id: authorisedRole.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: adminRole.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: managerRole.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+      },
+    ];
+
     // Category 1: ' | Important
-    const catImportant = await getOrCreateCategory(guild, "' | Important");
+    const catImportant = await getOrCreateCategory(guild, "' | Important", publicCatOverwrites);
     const rulesCh = await getOrCreateChannel(guild, '📜・rules', ChannelType.GuildText, catImportant.id, true, staffRoleIds);
     const announceCh = await getOrCreateChannel(guild, '📢・announcement', ChannelType.GuildAnnouncement, catImportant.id, true, staffRoleIds);
     const updatesCh = await getOrCreateChannel(guild, '📰・updates', ChannelType.GuildText, catImportant.id, true, staffRoleIds);
@@ -133,7 +214,7 @@ export default {
     channelIdMap.updates = updatesCh.id;
 
     // Category 2: ' | Requests
-    const catRequests = await getOrCreateCategory(guild, "' | Requests");
+    const catRequests = await getOrCreateCategory(guild, "' | Requests", publicCatOverwrites);
     const reqTestCh = await getOrCreateChannel(guild, '📩・request-test', ChannelType.GuildText, catRequests.id, true, staffRoleIds);
     const reqSuppCh = await getOrCreateChannel(guild, '💳・request-support', ChannelType.GuildText, catRequests.id, true, staffRoleIds);
     const reqAppCh = await getOrCreateChannel(guild, '📝・applications', ChannelType.GuildText, catRequests.id, true, staffRoleIds);
@@ -144,7 +225,7 @@ export default {
     channelIdMap.applications = reqAppCh.id;
 
     // Category 3: ' | Tierlists
-    const catTierlists = await getOrCreateCategory(guild, "' | Tierlists");
+    const catTierlists = await getOrCreateCategory(guild, "' | Tierlists", publicCatOverwrites);
     await getOrCreateChannel(guild, '📌・testing-rules', ChannelType.GuildText, catTierlists.id, true, staffRoleIds);
     await getOrCreateChannel(guild, '💫・staff-movements', ChannelType.GuildText, catTierlists.id, true, staffRoleIds);
     await getOrCreateChannel(guild, '❌・punishments', ChannelType.GuildText, catTierlists.id, true, staffRoleIds);
@@ -281,6 +362,8 @@ export default {
       tierManager: managerRole.id,
       tierTester: generalTesterRole.id,
       registered: registeredRole.id,
+      authorised: authorisedRole.id,
+      unauthorised: unauthorisedRole.id,
       testers: testerRoleMap,
       waitlists: waitlistRoleMap,
       tiers: tierRoleMap,

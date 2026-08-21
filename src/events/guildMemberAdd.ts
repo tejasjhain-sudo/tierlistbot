@@ -1,17 +1,21 @@
 import { GuildMember } from 'discord.js';
-import { syncGuildMemberRoles } from '../services/roleService';
+import { syncGuildMemberRoles, giveUnauthorisedRole } from '../services/roleService';
 import { sendMemberOnboarding } from '../services/onboardingService';
 
 export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
   if (member.user.bot) return;
 
-  // 1. Automatically restore Registered & Tier roles if player is in database
+  // 1. Check if member is already authorized/registered in database
   const synced = await syncGuildMemberRoles(member);
   if (synced) {
-    console.log(`[Auto-Sync] Automatically assigned Registered & Tier roles to joined member: ${member.user.tag} (${member.id})`);
+    console.log(`[Auto-Sync] Automatically assigned Authorised & Registered roles to member: ${member.user.tag} (${member.id})`);
+  } else {
+    // 2. If brand new unverified member, give Unauthorised role so they only see #verify
+    await giveUnauthorisedRole(member);
+    console.log(`[Security] Assigned Unauthorised role to new member: ${member.user.tag} (${member.id})`);
   }
 
-  // 2. Send Onboarding message (Ping selection & OAuth backup authorization)
+  // 3. Send Onboarding message with Verification & Backup button
   await sendMemberOnboarding(member);
 }
 

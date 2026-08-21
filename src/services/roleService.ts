@@ -40,6 +40,39 @@ export async function giveRegisteredRole(member: GuildMember): Promise<void> {
   await giveRole(member, roleIds.registered);
 }
 
+// ─── Give Authorised (Verified) role ──────────────────────────────────────────
+export async function giveAuthorisedRole(member: GuildMember): Promise<void> {
+  const roleIds = await getRoleIds(member.guild.id);
+  let roleId = roleIds.authorised || roleIds.verified;
+  if (!roleId) {
+    const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified');
+    if (role) roleId = role.id;
+  }
+  await giveRole(member, roleId);
+}
+
+// ─── Give Unauthorised role ──────────────────────────────────────────────────
+export async function giveUnauthorisedRole(member: GuildMember): Promise<void> {
+  const roleIds = await getRoleIds(member.guild.id);
+  let roleId = roleIds.unauthorised || roleIds.unverified;
+  if (!roleId) {
+    const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'unauthorised' || r.name.toLowerCase() === 'unverified');
+    if (role) roleId = role.id;
+  }
+  await giveRole(member, roleId);
+}
+
+// ─── Remove Unauthorised role ────────────────────────────────────────────────
+export async function removeUnauthorisedRole(member: GuildMember): Promise<void> {
+  const roleIds = await getRoleIds(member.guild.id);
+  let roleId = roleIds.unauthorised || roleIds.unverified;
+  if (!roleId) {
+    const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'unauthorised' || r.name.toLowerCase() === 'unverified');
+    if (role) roleId = role.id;
+  }
+  await removeRole(member, roleId);
+}
+
 // ─── Swap waitlist roles when mode changes ────────────────────────────────────
 export async function swapWaitlistRole(
   member: GuildMember,
@@ -133,10 +166,14 @@ export async function syncGuildMemberRoles(member: GuildMember): Promise<boolean
     });
     if (!player) return false;
 
-    // 1. Give Registered role
+    // 1. Give Authorised role and remove Unauthorised role
+    await giveAuthorisedRole(member);
+    await removeUnauthorisedRole(member);
+
+    // 2. Give Registered role
     await giveRegisteredRole(member);
 
-    // 2. Assign tier roles for each ranked gamemode
+    // 3. Assign tier roles for each ranked gamemode
     if (player.tiers && player.tiers.length > 0) {
       for (const t of player.tiers) {
         if (t.currentTier && t.currentTier !== 'Unranked') {
@@ -168,6 +205,8 @@ export async function syncAllGuildMembers(guild: Guild): Promise<{ synced: numbe
       const member = guild.members.cache.get(p.discordId);
       if (!member) continue;
 
+      await giveAuthorisedRole(member);
+      await removeUnauthorisedRole(member);
       await giveRegisteredRole(member);
 
       if (p.tiers && p.tiers.length > 0) {

@@ -13,6 +13,7 @@ import {
 import { Mode, QueueStatus } from '../config/constants';
 import prisma from '../database/prisma';
 import { COLORS, MODES, REGIONS } from '../config/constants';
+import { config } from '../config';
 
 // ─── In-memory locks to prevent concurrent duplicate panel sends ───────────────
 // Key format: 'register:{guildId}' or 'waitlist:{guildId}:{mode}'
@@ -492,9 +493,81 @@ export async function sendOrUpdateTesterAppPanel(guild: Guild): Promise<void> {
   await currentPromise;
 }
 
+// ─── Verification Auth Panel (OAuth & Server Access) ─────────────────────────
+export async function sendOrUpdateVerificationAuthPanel(guild: Guild): Promise<void> {
+  const lockKey = `verify_auth:${guild.id}`;
+  const previousPromise = panelUpdateQueues.get(lockKey) || Promise.resolve();
+
+  const currentPromise = previousPromise.then(async () => {
+    try {
+      const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+      if (!guildConfig) return;
+
+      const channelIds = (guildConfig.channelIds as Record<string, any>) ?? {};
+      const verifyChId = channelIds.verifyChannel || channelIds.verify;
+      let channel: TextChannel | undefined;
+
+      if (verifyChId) {
+        channel = guild.channels.cache.get(verifyChId) as TextChannel | undefined;
+      }
+      if (!channel) {
+        channel = guild.channels.cache.find(c => c.isTextBased() && (c.name.includes('verify') || c.name.includes('verification'))) as TextChannel | undefined;
+      }
+      if (!channel) return;
+
+      const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${config.discordClientId}&redirect_uri=${encodeURIComponent(config.publicApiUrl + '/api/auth/callback')}&response_type=code&scope=identify%20guilds.join`;
+
+      const embed = new EmbedBuilder()
+        .setTitle('🛡️ Server Verification')
+        .setDescription(
+          `Welcome to **${guild.name}**!\n\n` +
+          `To unlock full access to all server channels, announcements, events, and tier testing queues, please complete your verification.\n\n` +
+          `Click the **Verify Account** button below to verify.`
+        )
+        .setColor(COLORS.PRIMARY)
+        .setFooter({ text: 'RearMC Verification System • Instant Access' })
+        .setTimestamp();
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel('✅ Verify Account')
+          .setStyle(ButtonStyle.Link)
+          .setURL(authUrl)
+      );
+
+      const panelMessageIds = (guildConfig.panelMessageIds as Record<string, any>) ?? {};
+
+      if (panelMessageIds.verifyAuth) {
+        try {
+          const existing = await channel.messages.fetch(panelMessageIds.verifyAuth);
+          await existing.edit({ embeds: [embed], components: [row] });
+          return;
+        } catch (err) {
+          if (!(err instanceof DiscordAPIError && err.code === 10008)) throw err;
+          console.warn(`[${guild.name}] Verification auth panel message gone, sending new one.`);
+        }
+      }
+
+      const msg = await channel.send({ embeds: [embed], components: [row] });
+      panelMessageIds.verifyAuth = msg.id;
+
+      await prisma.guildConfig.update({
+        where: { guildId: guild.id },
+        data: { panelMessageIds },
+      });
+    } catch (e) {
+      console.error(`Error updating verification auth panel:`, e);
+    }
+  });
+
+  panelUpdateQueues.set(lockKey, currentPromise);
+  await currentPromise;
+}
+
 // ─── Master function to check and send/update ALL panels across the server ─────
 export async function sendOrUpdateAllServerPanels(guild: Guild): Promise<void> {
   await Promise.allSettled([
+    sendOrUpdateVerificationAuthPanel(guild),
     sendOrUpdateRegistrationPanel(guild),
     sendOrUpdateSupportPanel(guild),
     sendOrUpdateTesterAppPanel(guild),
