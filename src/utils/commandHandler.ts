@@ -18,10 +18,11 @@ export const loadCommands = (client: Client) => {
   const commandFolders = fs.readdirSync(commandsPath);
   
   for (const folder of commandFolders) {
+    if (folder.startsWith('_') || folder.startsWith('.')) continue;
     const folderPath = path.join(commandsPath, folder);
     if (!fs.statSync(folderPath).isDirectory()) continue;
 
-    const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.ts') || file.endsWith('.js'));
+    const commandFiles = fs.readdirSync(folderPath).filter(file => (file.endsWith('.ts') || file.endsWith('.js')) && !file.endsWith('.d.ts'));
     for (const file of commandFiles) {
       const filePath = path.join(folderPath, file);
       const command = require(filePath).default as Command;
