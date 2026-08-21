@@ -10,6 +10,7 @@ import { commands } from '../utils/commandHandler';
 import { Mode, Region } from '../config/constants';
 
 import {
+  handleVerifyServerAccess,
   handleVerifyAccount,
   handleEnterWaitlist,
   handleJoinNormalWaitlists,
@@ -95,6 +96,7 @@ export const handleInteraction = async (client: Client, interaction: Interaction
   if (interaction.isButton()) {
     const id = interaction.customId;
     try {
+      if (id === 'verify_server_access') return handleVerifyServerAccess(interaction as ButtonInteraction);
       if (id === 'onboarding_ping_roles_prompt') return handleOnboardingPingRolesPrompt(interaction as ButtonInteraction);
       if (id === 'apply_tester_prompt') return showTesterApplicationModal(interaction as ButtonInteraction);
       if (id === 'request_support_prompt') return showSupportTicketModal(interaction as ButtonInteraction);

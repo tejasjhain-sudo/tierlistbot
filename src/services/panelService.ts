@@ -522,15 +522,19 @@ export async function sendOrUpdateVerificationAuthPanel(guild: Guild): Promise<v
         .setDescription(
           `Welcome to **${guild.name}**!\n\n` +
           `To unlock full access to all server channels, announcements, events, and tier testing queues, please complete your verification.\n\n` +
-          `Click the **Verify Account** button below to verify.`
+          `Click the **Verify Account** button below to complete verification and unlock the server immediately.`
         )
         .setColor(COLORS.PRIMARY)
-        .setFooter({ text: 'RearMC Verification System • Instant Access' })
+        .setFooter({ text: 'RearMC Verification System • Instant Server Access' })
         .setTimestamp();
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
+          .setCustomId('verify_server_access')
           .setLabel('✅ Verify Account')
+          .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setLabel('🔒 Backup & Auto-Join (OAuth)')
           .setStyle(ButtonStyle.Link)
           .setURL(authUrl)
       );

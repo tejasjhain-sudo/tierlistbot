@@ -14,11 +14,38 @@ import { Mode, Region, Tier } from '../../config/constants';
 import { config } from '../../config';
 import prisma from '../../database/prisma';
 import { joinQueue, leaveAllQueues, leaveQueue } from '../../services/queueService';
-import { giveRegisteredRole, swapWaitlistRole } from '../../services/roleService';
+import { giveRegisteredRole, swapWaitlistRole, giveAuthorisedRole, removeUnauthorisedRole, syncGuildMemberRoles } from '../../services/roleService';
 import { sendOrUpdateWaitlistPanel } from '../../services/panelService';
 import { fetchMinecraftProfile, isValidMinecraftUsername, getPlayerHeadUrl } from '../../services/minecraftService';
 import { COLORS, MODES, REGIONS } from '../../config/constants';
 import { qualifiesForHighTicket } from '../../services/highTicketService';
+
+// ─── Instant Verify Server Access button ──────────────────────────────────────
+export async function handleVerifyServerAccess(interaction: ButtonInteraction): Promise<void> {
+  if (!interaction.guild) return;
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    await interaction.editReply({ content: '❌ Could not find your member profile in this server.' });
+    return;
+  }
+
+  await removeUnauthorisedRole(member);
+  await giveAuthorisedRole(member);
+  await syncGuildMemberRoles(member);
+
+  const embed = new EmbedBuilder()
+    .setTitle('✅ Verification Complete')
+    .setDescription(
+      `Welcome to **${interaction.guild.name}**!\n\n` +
+      `Your account has been verified and you now have full access to all server channels, announcements, events, and tier testing queues.`
+    )
+    .setColor(COLORS.SUCCESS)
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [embed] });
+}
 
 // ─── Register button ──────────────────────────────────────────────────────────
 export async function handleRegister(interaction: ButtonInteraction): Promise<void> {
