@@ -1,11 +1,12 @@
 import { StringSelectMenuInteraction, EmbedBuilder } from 'discord.js';
 import { COLORS } from '../../config/constants';
 
-const PING_ROLES = [
-  { id: 'announcement', label: 'Announcement', roleName: 'Announcement Ping' },
-  { id: 'poll', label: 'Poll of the Day', roleName: 'Poll of the Day Ping' },
-  { id: 'updates', label: 'Updates', roleName: 'Updates Ping' },
-  { id: 'events', label: 'Events', roleName: 'Events Ping' },
+export const PING_ROLES = [
+  { id: 'testing', label: 'Testing Ping', keywords: ['testing ping'] },
+  { id: 'announcement', label: 'Announcements Ping', keywords: ['announcement ping', 'announcements ping'] },
+  { id: 'updates', label: 'Updates Ping', keywords: ['updates ping', 'update ping'] },
+  { id: 'events', label: 'Events Ping', keywords: ['events ping', 'event ping'] },
+  { id: 'poll', label: 'Poll of the Day', keywords: ['poll of the day ping', 'poll ping'] },
 ];
 
 export async function handlePingRolesSelect(interaction: StringSelectMenuInteraction): Promise<any> {
@@ -20,7 +21,9 @@ export async function handlePingRolesSelect(interaction: StringSelectMenuInterac
   const rolesRemoved: string[] = [];
 
   for (const r of PING_ROLES) {
-    const role = interaction.guild.roles.cache.find(role => role.name === r.roleName);
+    const role = interaction.guild.roles.cache.find(role =>
+      r.keywords.some(k => role.name.toLowerCase().includes(k) || role.name.toLowerCase() === k)
+    );
     if (!role) continue;
 
     const isSelected = selectedIds.includes(r.id);
@@ -31,14 +34,14 @@ export async function handlePingRolesSelect(interaction: StringSelectMenuInterac
         await member.roles.add(role);
         rolesAdded.push(r.label);
       } catch (err) {
-        console.error(`Failed to add role ${r.roleName}:`, err);
+        console.error(`Failed to add role ${r.label}:`, err);
       }
     } else if (!isSelected && hasRole) {
       try {
         await member.roles.remove(role);
         rolesRemoved.push(r.label);
       } catch (err) {
-        console.error(`Failed to remove role ${r.roleName}:`, err);
+        console.error(`Failed to remove role ${r.label}:`, err);
       }
     }
   }
@@ -53,7 +56,9 @@ export async function handlePingRolesSelect(interaction: StringSelectMenuInterac
   // Show currently active roles
   const activeRoles: string[] = [];
   for (const r of PING_ROLES) {
-    const role = interaction.guild.roles.cache.find(role => role.name === r.roleName);
+    const role = interaction.guild.roles.cache.find(role =>
+      r.keywords.some(k => role.name.toLowerCase().includes(k) || role.name.toLowerCase() === k)
+    );
     if (role && member.roles.cache.has(role.id)) {
       activeRoles.push(`• **${r.label}**`);
     }

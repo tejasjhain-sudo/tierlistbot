@@ -55,6 +55,7 @@ import { handlePingRolesSelect } from '../interactions/selectMenus/pingRolesSele
 import { showSupportTicketModal, handleSupportTicketSubmit } from '../services/supportTicketService';
 import { handleOpenHighTicketPrompt, handleSelectHighTicketMode } from '../interactions/buttons/highTicketButtons';
 import { showTesterApplicationModal, handleTesterApplicationSubmit } from '../services/testerApplicationService';
+import { handleOnboardingPingRolesPrompt } from '../interactions/buttons/onboardingButtons';
 import { handleMassDMSubmit } from '../commands/admin/massDM';
 import { startStaffApplication, handleStaffAppAccept, handleStaffAppDecline } from '../services/staffApplicationService';
 
@@ -94,6 +95,7 @@ export const handleInteraction = async (client: Client, interaction: Interaction
   if (interaction.isButton()) {
     const id = interaction.customId;
     try {
+      if (id === 'onboarding_ping_roles_prompt') return handleOnboardingPingRolesPrompt(interaction as ButtonInteraction);
       if (id === 'apply_tester_prompt') return showTesterApplicationModal(interaction as ButtonInteraction);
       if (id === 'request_support_prompt') return showSupportTicketModal(interaction as ButtonInteraction);
       if (id === 'open_high_ticket_prompt') return handleOpenHighTicketPrompt(interaction as ButtonInteraction);
