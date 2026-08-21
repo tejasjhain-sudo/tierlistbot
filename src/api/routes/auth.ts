@@ -94,9 +94,6 @@ router.get('/callback', async (req, res) => {
             await syncGuildMemberRoles(member);
 
             console.log(`[Verification] Verified and granted full access to ${member.user.tag} in ${guild.name}`);
-            try {
-              await member.send(`🎉 **Verification Successful!** You now have full access to all channels, tier testing waitlists, and announcements in **${guild.name}**.`);
-            } catch {}
           }
         } catch (e) {
           console.warn(`[Verification] Could not update roles for member in guild ${guild.name}:`, e);

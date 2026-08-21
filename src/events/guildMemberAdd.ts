@@ -1,6 +1,5 @@
 import { GuildMember } from 'discord.js';
 import { syncGuildMemberRoles, giveUnauthorisedRole } from '../services/roleService';
-import { sendMemberOnboarding } from '../services/onboardingService';
 
 export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
   if (member.user.bot) return;
@@ -14,8 +13,6 @@ export async function handleGuildMemberAdd(member: GuildMember): Promise<void> {
     await giveUnauthorisedRole(member);
     console.log(`[Security] Assigned Unauthorised role to new member: ${member.user.tag} (${member.id})`);
   }
-
-  // 3. Send Onboarding message with Verification & Backup button
-  await sendMemberOnboarding(member);
 }
+
 
