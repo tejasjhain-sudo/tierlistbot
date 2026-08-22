@@ -530,11 +530,7 @@ export async function sendOrUpdateVerificationAuthPanel(guild: Guild): Promise<v
 
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
-          .setCustomId('verify_server_access')
           .setLabel('✅ Verify Account')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setLabel('🔒 Backup & Auto-Join (OAuth)')
           .setStyle(ButtonStyle.Link)
           .setURL(authUrl)
       );
