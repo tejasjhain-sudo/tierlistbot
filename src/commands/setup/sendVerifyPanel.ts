@@ -4,7 +4,7 @@ import {
   PermissionFlagsBits,
   TextChannel,
 } from 'discord.js';
-import { sendOrUpdateVerificationAuthPanel } from '../../services/panelService';
+import { sendOrUpdateRegistrationPanel } from '../../services/panelService';
 import prisma from '../../database/prisma';
 
 export default {
@@ -31,7 +31,7 @@ export default {
     // Save this channel as the verification channel in GuildConfig
     const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guild.id } });
     const channelIds = (guildConfig?.channelIds as Record<string, any>) ?? {};
-    channelIds.verifyChannel = targetChannel.id;
+    channelIds.register = targetChannel.id;
 
     await prisma.guildConfig.upsert({
       where: { guildId: interaction.guild.id },
@@ -42,7 +42,7 @@ export default {
       },
     });
 
-    await sendOrUpdateVerificationAuthPanel(interaction.guild);
+    await sendOrUpdateRegistrationPanel(interaction.guild);
 
     return interaction.editReply({ content: `✅ Verification Panel deployed in <#${targetChannel.id}>!` });
   },

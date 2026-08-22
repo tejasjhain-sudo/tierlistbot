@@ -1,10 +1,21 @@
 import { Router } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { config } from '../../config';
 import prisma from '../../database/prisma';
 import { getDiscordClient } from '../server';
 import { giveAuthorisedRole, removeUnauthorisedRole, syncGuildMemberRoles } from '../../services/roleService';
 
 const router = Router();
+
+// Initialize Supabase Client if env vars exist
+let supabase: any = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  try {
+    supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+  } catch (e) {
+    console.warn('[Supabase] Could not initialize Supabase client:', e);
+  }
+}
 
 router.get('/callback', async (req, res) => {
   const { code } = req.query;
@@ -66,7 +77,7 @@ router.get('/callback', async (req, res) => {
     const discordId = userData.id;
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
-    // 3. Upsert user tokens in database
+    // 3. Upsert user tokens in local SQLite database
     const player = await prisma.player.findUnique({ where: { discordId } });
 
     if (player) {
@@ -94,7 +105,24 @@ router.get('/callback', async (req, res) => {
       });
     }
 
-    // 4. Update Roles in Discord Server (Remove Unauthorised, Add Authorised)
+    // 4. Send Backup to Supabase
+    if (supabase) {
+      try {
+        await supabase.from('backup_players').upsert({
+          discord_id: discordId,
+          username: userData.username,
+          access_token,
+          refresh_token,
+          expires_at: expiresAt.toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'discord_id' });
+        console.log(`[Supabase Backup] ✅ Backed up player ${userData.username} (${discordId}) to Supabase.`);
+      } catch (sbErr) {
+        console.warn(`[Supabase Backup] Warning: Could not write backup to Supabase:`, sbErr);
+      }
+    }
+
+    // 5. Update Roles in Discord Server (Remove Unauthorised, Add Authorised)
     const client = getDiscordClient();
     if (client) {
       for (const [, guild] of client.guilds.cache) {
@@ -117,7 +145,7 @@ router.get('/callback', async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Verification Complete • RearMC</title>
+          <title>Verification Complete • Arix Tierlist</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
         </head>
         <body style="background-color: #0f1117; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">
@@ -141,4 +169,3 @@ router.get('/callback', async (req, res) => {
 });
 
 export default router;
-

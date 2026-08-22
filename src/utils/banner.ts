@@ -21,13 +21,13 @@ export async function printStartupBanner(): Promise<void> {
   const version = getAppVersion();
 
   console.log('\x1b[36m' + `
-  ██████╗ ███████╗ █████╗ ██████╗ ███╗   ███╗ ██████╗
-  ██╔══██╗██╔════╝██╔══██╗██╔══██╗████╗ ████║██╔════╝
-  ██████╔╝█████╗  ███████║██████╔╝██╔████╔██║██║     
-  ██╔══██╗██╔══╝  ██╔══██║██╔══██╗██║╚██╔╝██║██║     
-  ██║  ██║███████╗██║  ██║██║  ██║██║ ╚═╝ ██║╚██████╗
-  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝
-          ⚔️  MINECRAFT TIERLIST SYSTEM v${version}  ⚔️
+   █████╗ ██████╗ ██╗██╗  ██╗    ████████╗██╗███████╗██████╗ 
+  ██╔══██╗██╔══██╗██║╚██╗██╔╝    ╚══██╔══╝██║██╔════╝██╔══██╗
+  ███████║██████╔╝██║ ╚███╔╝        ██║   ██║█████╗  ██████╔╝
+  ██╔══██║██╔══██╗██║ ██╔██╗        ██║   ██║██╔══╝  ██╔══██╗
+  ██║  ██║██║  ██║██║██╔╝ ██╗       ██║   ██║███████╗██║  ██║
+  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝       ╚═╝   ╚═╝╚══════╝╚═╝  ╚═╝
+          ⚔️  ARIX TIERLIST SYSTEM v${version}  ⚔️
   ` + '\x1b[0m');
 
   console.log('\x1b[90m' + '─'.repeat(60) + '\x1b[0m');
@@ -35,7 +35,7 @@ export async function printStartupBanner(): Promise<void> {
   // Step 1: License Verification
   console.log('\x1b[33m' + ` [1/3] 🔑 Verifying Product License...` + '\x1b[0m');
   await new Promise(r => setTimeout(r, 200));
-  console.log('\x1b[32m' + `       ✔ License Status: VALID & ACTIVE (Commercial Resell Edition)` + '\x1b[0m');
+  console.log('\x1b[32m' + `       ✔ License Status: VALID & ACTIVE (Commercial Edition)` + '\x1b[0m');
 
   // Step 2: Auto-Update Check
   console.log('\x1b[33m' + ` [2/3] 🔄 Running Auto-Updater Check...` + '\x1b[0m');
@@ -52,10 +52,10 @@ export async function printStartupBanner(): Promise<void> {
   }
 
   // Step 3: Database Connection
-  console.log('\x1b[33m' + ` [3/3] 🌐 Connecting to Supabase PostgreSQL Database...` + '\x1b[0m');
+  console.log('\x1b[33m' + ` [3/3] 📁 Initializing Database...` + '\x1b[0m');
   try {
     await prisma.$connect();
-    console.log('\x1b[32m' + `       ✔ Supabase PostgreSQL Database Connected Successfully` + '\x1b[0m');
+    console.log('\x1b[32m' + `       ✔ Database Connected Successfully` + '\x1b[0m');
   } catch (err) {
     console.log('\x1b[31m' + `       ✖ Database Connection Error: ${err}` + '\x1b[0m');
   }

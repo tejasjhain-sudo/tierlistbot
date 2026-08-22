@@ -10,7 +10,7 @@ import { getPlayerHeadUrl } from '../../services/minecraftService';
 export default {
   data: new SlashCommandBuilder()
     .setName('profile')
-    .setDescription('View a player\'s RearmC Tier List profile.')
+    .setDescription('View a player\'s Arix Tierlist profile.')
     .addUserOption(opt =>
       opt
         .setName('user')
@@ -39,8 +39,8 @@ export default {
         const embed = new EmbedBuilder()
           .setTitle('❓ Profile Not Found')
           .setDescription(
-            `<@${targetUser.id}> has not verified their Minecraft account yet.\n\n` +
-            `Use **/verify** or click **Verify Account** in the testing panel to link your account!`
+            `<@${targetUser.id}> has not registered their Minecraft account yet.\n\n` +
+            `Use **/register** or click **Register** in the testing panel to link your account!`
           )
           .setColor(COLORS.WARNING);
         return interaction.editReply({ embeds: [embed] });
@@ -61,7 +61,7 @@ export default {
       const bodyUrl = `https://mc-heads.net/body/${encodeURIComponent(player.minecraftUuid ?? player.minecraftUsername)}/128`;
 
       const embed = new EmbedBuilder()
-        .setTitle(`🎮 RearmC Player Profile — ${player.minecraftUsername}`)
+        .setTitle(`🎮 Arix Player Profile — ${player.minecraftUsername}`)
         .setThumbnail(avatarUrl)
         .addFields(
           { name: 'Minecraft IGN', value: `\`${player.minecraftUsername}\``, inline: true },

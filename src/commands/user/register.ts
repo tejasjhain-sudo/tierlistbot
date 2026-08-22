@@ -8,9 +8,9 @@ import { COLORS } from '../../config/constants';
 import prisma from '../../database/prisma';
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL || 'https://gioxgsgiihqtbtbljnil.supabase.co';
-const supabaseKey = process.env.SUPABASE_KEY || 'sb_publishable_nQlLJaj1mr2XdhA7YZFl2w_0_hGf_57';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_KEY || '';
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default {
   data: new SlashCommandBuilder()
@@ -28,6 +28,10 @@ export default {
     await interaction.deferReply({ ephemeral: true });
 
     const code = interaction.options.getString('code', true).toUpperCase();
+
+    if (!supabase) {
+      return interaction.editReply({ content: '❌ Website registration service is currently offline.' });
+    }
 
     try {
       // Query the profile_claims table

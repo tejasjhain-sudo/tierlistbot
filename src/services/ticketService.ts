@@ -45,7 +45,7 @@ export function buildTicketEmbed(params: {
       { name: 'Session ID', value: `\`${params.sessionId ?? params.id}\``, inline: true },
     )
     .setColor(0x2b2d31)
-    .setFooter({ text: 'RearMC Tier Testing' })
+    .setFooter({ text: 'Arix Tier Testing' })
     .setTimestamp();
 }
 

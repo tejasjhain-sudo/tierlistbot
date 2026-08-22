@@ -74,6 +74,14 @@ export default {
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
+    try {
+      const recent = await targetChannel.messages.fetch({ limit: 15 });
+      const botMessages = Array.from(recent.values()).filter(m => m.author.id === interaction.client.user?.id);
+      for (const bMsg of botMessages) {
+        try { await bMsg.delete(); } catch {}
+      }
+    } catch {}
+
     await targetChannel.send({ embeds: [embed], components: [row] });
 
     return interaction.editReply({ content: `✅ Ping roles panel sent in <#${targetChannel.id}>!` });

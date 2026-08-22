@@ -59,6 +59,14 @@ export default {
         .setStyle(ButtonStyle.Danger)
     );
 
+    try {
+      const recent = await targetChannel.messages.fetch({ limit: 15 });
+      const botMessages = Array.from(recent.values()).filter(m => m.author.id === interaction.client.user?.id);
+      for (const bMsg of botMessages) {
+        try { await bMsg.delete(); } catch {}
+      }
+    } catch {}
+
     await targetChannel.send({ embeds: [embed], components: [row] });
 
     return interaction.editReply({ content: `✅ High Tier Testing Panel sent in ${targetChannel}!` });

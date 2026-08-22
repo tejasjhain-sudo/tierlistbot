@@ -13,8 +13,6 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -60,8 +58,18 @@ async function main() {
     // Start REST API
     startApiServer(client);
 
-    // Login the bot
-    await client.login(config.discordToken);
+    // Login the bot with graceful intent handling
+    try {
+      await client.login(config.discordToken);
+    } catch (loginErr: any) {
+      if (loginErr.message?.includes('disallowed intents')) {
+        console.error('\n⚠️ [Privileged Intents Required]');
+        console.error('👉 Go to: https://discord.com/developers/applications/' + config.discordClientId + '/bot');
+        console.error('👉 Scroll down to "Privileged Gateway Intents"');
+        console.error('👉 Enable: ✅ SERVER MEMBERS INTENT and ✅ MESSAGE CONTENT INTENT, then save!\n');
+      }
+      throw loginErr;
+    }
   } catch (error) {
     console.error('Fatal error during startup:', error);
     process.exit(1);

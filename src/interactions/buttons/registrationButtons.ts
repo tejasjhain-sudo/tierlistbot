@@ -9,6 +9,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   EmbedBuilder,
+  PermissionFlagsBits,
 } from 'discord.js';
 import { Mode, Region, Tier } from '../../config/constants';
 import { config } from '../../config';
@@ -23,7 +24,9 @@ import { qualifiesForHighTicket } from '../../services/highTicketService';
 // ─── Instant Verify Server Access button ──────────────────────────────────────
 export async function handleVerifyServerAccess(interaction: ButtonInteraction): Promise<void> {
   if (!interaction.guild) return;
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true }).catch(() => {});
+  }
 
   const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
@@ -35,11 +38,55 @@ export async function handleVerifyServerAccess(interaction: ButtonInteraction): 
   await giveAuthorisedRole(member);
   await syncGuildMemberRoles(member);
 
+  // Save verification status in SQLite
+  try {
+    const existingPlayer = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
+    if (existingPlayer) {
+      await prisma.player.update({
+        where: { discordId: interaction.user.id },
+        data: {
+          discordAccessToken: existingPlayer.discordAccessToken || 'VERIFIED_DISCORD_ACCESS',
+          discordTokenExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        }
+      });
+    } else {
+      await prisma.player.create({
+        data: {
+          discordId: interaction.user.id,
+          minecraftUsername: interaction.user.username,
+          minecraftUsernameLower: interaction.user.username.toLowerCase(),
+          region: 'AS',
+          preferredMode: 'sword',
+          discordAccessToken: 'VERIFIED_DISCORD_ACCESS',
+          discordTokenExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Error saving verification in SQLite:', e);
+  }
+
+  // Backup to Supabase
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+      await supabase.from('backup_players').upsert({
+        discord_id: interaction.user.id,
+        username: interaction.user.username,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'discord_id' });
+    }
+  } catch (e) {
+    console.warn('[Supabase Backup] Warning:', e);
+  }
+
   const embed = new EmbedBuilder()
     .setTitle('✅ Verification Complete')
     .setDescription(
       `Welcome to **${interaction.guild.name}**!\n\n` +
-      `Your account has been verified and you now have full access to all server channels, announcements, events, and tier testing queues.`
+      `Your account has been verified and backed up! You now have full access to all server channels, announcements, and tier testing queues.\n\n` +
+      `Click **Register Minecraft IGN** in the panel above to link your Minecraft username!`
     )
     .setColor(COLORS.SUCCESS)
     .setTimestamp();
@@ -240,18 +287,20 @@ export async function handleLeaveAllQueues(interaction: ButtonInteraction): Prom
 // ─── Queue Join button ────────────────────────────────────────────────────────
 export async function handleQueueJoin(interaction: ButtonInteraction, mode: Mode): Promise<void> {
   if (!interaction.guild) return;
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
 
-  // 1. Enforce Main Server Membership
-  const mainServerId = config.discordGuildId || '1540377478307123350';
-  if (interaction.guild.id !== mainServerId) {
+  // 1. Enforce Main Server Membership (if secondary server)
+  const mainServerId = config.discordGuildId;
+  if (mainServerId && interaction.guild.id !== mainServerId) {
     try {
       const mainGuild = await interaction.client.guilds.fetch(mainServerId);
       const isMember = await mainGuild.members.fetch(interaction.user.id).catch(() => null);
       if (!isMember) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Main Server Required')
-          .setDescription('You must be a member of the **Main RearMC Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
+          .setDescription('You must be a member of the **Main Arix Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
           .setColor(COLORS.DANGER);
           
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -293,7 +342,9 @@ export async function handleQueueJoin(interaction: ButtonInteraction, mode: Mode
 // ─── Queue Leave button ───────────────────────────────────────────────────────
 export async function handleQueueLeave(interaction: ButtonInteraction, mode: Mode): Promise<void> {
   if (!interaction.guild) return;
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
 
   const result = await leaveQueue(interaction.guild.id, interaction.user.id, mode);
 
@@ -317,7 +368,9 @@ export async function handleQueueLeave(interaction: ButtonInteraction, mode: Mod
 // ─── Queue My Position button ─────────────────────────────────────────────────
 export async function handleQueuePosition(interaction: ButtonInteraction, mode: Mode): Promise<void> {
   if (!interaction.guild) return;
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
 
   const player = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
   if (!player) { await interaction.editReply({ content: '❌ You are not registered.' }); return; }
@@ -338,7 +391,9 @@ export async function handleQueuePosition(interaction: ButtonInteraction, mode: 
 // ─── Queue Refresh button ─────────────────────────────────────────────────────
 export async function handleQueueRefresh(interaction: ButtonInteraction, mode: Mode): Promise<void> {
   if (!interaction.guild) return;
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   await sendOrUpdateWaitlistPanel(interaction.guild, mode);
   await interaction.editReply({ content: `✅ Refreshed **${MODES[mode]}** panel.` });
 }
@@ -347,8 +402,32 @@ export async function handleQueueRefresh(interaction: ButtonInteraction, mode: M
 export async function handleVerifyAccount(interaction: ButtonInteraction): Promise<any> {
   const discordId = interaction.user.id;
 
+  // 1. Check if the player is verified (has Authorised / Verified role)
+  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guild?.id || '' } });
+  const roleIds = (guildConfig?.roleIds as Record<string, any>) || {};
+  const authorisedRoleId = roleIds.authorised || roleIds.verified;
+  const member = interaction.guild?.members.cache.get(discordId);
+
+  const hasAuthorisedRole = authorisedRoleId
+    ? (member?.roles.cache.has(authorisedRoleId) ?? false)
+    : (member?.roles.cache.some(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified') ?? false);
+  const isServerAdmin = interaction.guild?.ownerId === discordId || (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false);
+
+  if (!hasAuthorisedRole && !isServerAdmin) {
+    const embed = new EmbedBuilder()
+      .setTitle('❌ Verification Required')
+      .setDescription(
+        'You must verify your account first before registering your Minecraft profile!\n\n' +
+        '👉 Please click **🛡️ Verify Account** in the panel above first.'
+      )
+      .setColor(COLORS.WARNING);
+
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  }
+
   const player = await prisma.player.findUnique({ where: { discordId } });
-  if (player) {
+
+  if (player && player.minecraftUsername && player.minecraftUsername !== `User_${discordId.slice(-4)}`) {
     const embed = new EmbedBuilder()
       .setTitle('✅ Already Registered')
       .setThumbnail(getPlayerHeadUrl(player.minecraftUuid ?? player.minecraftUsername))
@@ -443,20 +522,45 @@ async function processNormalWaitlistJoin(interaction: ButtonInteraction, player:
 
 // ─── Enter Waitlist button ────────────────────────────────────────────────────
 export async function handleEnterWaitlist(interaction: ButtonInteraction): Promise<any> {
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   const discordId = interaction.user.id;
   if (!interaction.guild) return interaction.editReply({ content: '❌ Must be used in a server.' });
 
-  // 1. Enforce Main Server Membership
-  const mainServerId = config.discordGuildId || '1540377478307123350';
-  if (interaction.guild.id !== mainServerId) {
+  // 1. Check if the player is verified
+  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guild.id } });
+  const roleIds = (guildConfig?.roleIds as Record<string, any>) || {};
+  const authorisedRoleId = roleIds.authorised || roleIds.verified;
+  const member = interaction.guild.members.cache.get(discordId);
+
+  const hasAuthorisedRole = authorisedRoleId
+    ? (member?.roles.cache.has(authorisedRoleId) ?? false)
+    : (member?.roles.cache.some(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified') ?? false);
+  const isServerAdmin = interaction.guild.ownerId === discordId || (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false);
+
+  if (!hasAuthorisedRole && !isServerAdmin) {
+    const embed = new EmbedBuilder()
+      .setTitle('❌ Verification Required')
+      .setDescription(
+        'You must verify your account first before joining the waitlist!\n\n' +
+        '👉 Please click **🛡️ Verify Account** in the panel above first.'
+      )
+      .setColor(COLORS.WARNING);
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+
+  // 2. Enforce Main Server Membership
+  const mainServerId = config.discordGuildId;
+  if (mainServerId && interaction.guild.id !== mainServerId) {
     try {
       const mainGuild = await interaction.client.guilds.fetch(mainServerId);
       const isMember = await mainGuild.members.fetch(discordId).catch(() => null);
       if (!isMember) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Main Server Required')
-          .setDescription('You must be a member of the **Main RearMC Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
+          .setDescription('You must be a member of the **Main Arix Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
           .setColor(COLORS.DANGER);
           
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -474,12 +578,12 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
     where: { discordId },
     include: { tiers: true }
   });
-  if (!player || !player.minecraftUuid) {
+  if (!player || !player.minecraftUsername || player.minecraftUsername === `User_${discordId.slice(-4)}`) {
     const embed = new EmbedBuilder()
-      .setTitle('❌ Verification Required')
+      .setTitle('❌ Registration Required')
       .setDescription(
-        'You need to verify your Minecraft account first before joining the waitlist.\n\n' +
-        'Use **/verify** or click **Verify Account** above!'
+        'You need to register your Minecraft account first before joining the waitlist.\n\n' +
+        '👉 Please click **📝 Register Minecraft IGN** in the panel above!'
       )
       .setColor(COLORS.DANGER);
     return interaction.editReply({ embeds: [embed] });
@@ -526,13 +630,15 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
 
 // ─── Join Normal Waitlists button (bypass HT check) ───────────────────────────
 export async function handleJoinNormalWaitlists(interaction: ButtonInteraction): Promise<any> {
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   const discordId = interaction.user.id;
   if (!interaction.guild) return interaction.editReply({ content: '❌ Must be used in a server.' });
 
   const player = await prisma.player.findUnique({ where: { discordId } });
-  if (!player || !player.minecraftUuid) {
-    return interaction.editReply({ content: '❌ You must be verified.' });
+  if (!player) {
+    return interaction.editReply({ content: '❌ You must be registered.' });
   }
 
   return processNormalWaitlistJoin(interaction, player);
@@ -540,12 +646,14 @@ export async function handleJoinNormalWaitlists(interaction: ButtonInteraction):
 
 // ─── View Cooldown button ─────────────────────────────────────────────────────
 export async function handleViewCooldown(interaction: ButtonInteraction): Promise<any> {
-  await interaction.deferReply({ ephemeral: true });
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
   const discordId = interaction.user.id;
 
   const player = await prisma.player.findUnique({ where: { discordId } });
   if (!player) {
-    return interaction.editReply({ content: '❌ You are not registered or verified.' });
+    return interaction.editReply({ content: '❌ You are not registered.' });
   }
 
   const cooldowns = (player.waitlistRoleCooldowns as Record<string, string>) ?? {};

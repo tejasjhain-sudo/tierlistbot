@@ -20,9 +20,9 @@ import { setTicketPermissions } from './roleService';
 // ─── Send Support Ticket Panel ────────────────────────────────────────────────
 export async function sendSupportPanel(guild: Guild, targetChannel: TextChannel): Promise<void> {
   const embed = new EmbedBuilder()
-    .setTitle('🛠️ RearMC Server Support')
+    .setTitle('🛠️ Arix Server Support')
     .setDescription(
-      `Need assistance from the RearMC Support Team?\n\n` +
+      `Need assistance from the Arix Support Team?\n\n` +
       `• **General Queries & Help**\n` +
       `• **Tier Rank Verification Issues**\n` +
       `• **Bug Reports & Feedback**\n\n` +

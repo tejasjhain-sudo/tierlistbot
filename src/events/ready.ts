@@ -11,7 +11,7 @@ export async function handleReady(client: Client): Promise<void> {
   client.user?.setPresence({
     status: 'online',
     activities: [{
-      name: 'RearMC | /apply',
+      name: 'Arix Tierlist | /register',
       type: ActivityType.Playing,
     }],
   });

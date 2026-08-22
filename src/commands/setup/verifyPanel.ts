@@ -7,7 +7,7 @@ import {
   OverwriteType,
   EmbedBuilder,
 } from 'discord.js';
-import { sendOrUpdateVerificationAuthPanel } from '../../services/panelService';
+import { sendOrUpdateRegistrationPanel } from '../../services/panelService';
 import { COLORS } from '../../config/constants';
 import prisma from '../../database/prisma';
 
@@ -148,7 +148,7 @@ export default {
     });
 
     // Deploy verification panel
-    await sendOrUpdateVerificationAuthPanel(guild);
+    await sendOrUpdateRegistrationPanel(guild);
 
     const embed = new EmbedBuilder()
       .setTitle('✅ Verification Panel Deployed!')

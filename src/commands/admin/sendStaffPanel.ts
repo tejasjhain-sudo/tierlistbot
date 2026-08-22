@@ -52,7 +52,7 @@ export default {
       .setTitle('📝 Staff Apply')
       .setDescription(
         '# STAFF REQUIREMENT\n\n' +
-        'Welcome to the applications panel of REARMC! If you are passionate about helping REARMC and contribute to its growth. You can apply for staff using the drop down menu.\n\n' +
+        'Welcome to the applications panel of Arix Tierlist! If you are passionate about helping Arix Tierlist and contributing to its growth, you can apply for staff using the dropdown menu below.\n\n' +
         'You can apply for:\n' +
         '**Staff Team**\n\n' +
         '• You must be at least 14 years of age.\n' +
@@ -61,14 +61,14 @@ export default {
         '• Usage of AI is strictly prohibited and would cause an application blacklist.\n' +
         '• Vouches aren\'t really required.\n\n' +
         'Good Luck with your Applications!\n\n' +
-        '⚙️ **Appy**'
+        '⚙️ **Apply**'
       )
       .setColor(COLORS.RESULT)
       .setTimestamp();
 
     const selectOption = new StringSelectMenuOptionBuilder()
       .setLabel('Staff Team')
-      .setDescription('Apply to join the RearMC staff team.')
+      .setDescription('Apply to join the Arix staff team.')
       .setValue('staff_team_apply')
       .setEmoji('📝');
 
@@ -78,6 +78,14 @@ export default {
       .addOptions(selectOption);
 
     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+    try {
+      const recent = await targetChannel.messages.fetch({ limit: 15 });
+      const botMessages = Array.from(recent.values()).filter(m => m.author.id === interaction.client.user?.id);
+      for (const bMsg of botMessages) {
+        try { await bMsg.delete(); } catch {}
+      }
+    } catch {}
 
     await targetChannel.send({ embeds: [embed], components: [row] });
 
