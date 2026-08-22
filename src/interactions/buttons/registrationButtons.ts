@@ -343,80 +343,30 @@ export async function handleQueueRefresh(interaction: ButtonInteraction, mode: M
   await interaction.editReply({ content: `✅ Refreshed **${MODES[mode]}** panel.` });
 }
 
-// ─── Verify Account button ────────────────────────────────────────────────────
+// ─── Verify Account / Register button ─────────────────────────────────────────
 export async function handleVerifyAccount(interaction: ButtonInteraction): Promise<any> {
   const discordId = interaction.user.id;
 
   const player = await prisma.player.findUnique({ where: { discordId } });
-  if (player && player.minecraftUuid) {
+  if (player) {
     const embed = new EmbedBuilder()
-      .setTitle('✅ Already Verified')
-      .setThumbnail(getPlayerHeadUrl(player.minecraftUsername))
+      .setTitle('✅ Already Registered')
+      .setThumbnail(getPlayerHeadUrl(player.minecraftUuid ?? player.minecraftUsername))
       .setDescription(
         `Your Discord account is already linked to your Minecraft account.\n\n` +
         `🎮 **Minecraft IGN:** \`${player.minecraftUsername}\`\n` +
-        `🆔 **Minecraft UUID:** \`${player.minecraftUuid}\`\n` +
-        `🌍 **Region:** \`${player.region}\``
+        `🆔 **Minecraft UUID:** \`${player.minecraftUuid ?? 'N/A'}\`\n` +
+        `🌍 **Region:** \`${player.region}\`\n` +
+        `⚔️ **Preferred Mode:** \`${MODES[player.preferredMode as Mode] || player.preferredMode}\`\n\n` +
+        `_Need to change your details? Click **Update Account**._`
       )
       .setColor(COLORS.SUCCESS);
     return interaction.reply({ embeds: [embed], ephemeral: true });
   }
 
-  // Ping the MC server to see if it's online
-  let isOnline = false;
-  const verifyServerIP = (process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[0];
-  const verifyServerPort = parseInt((process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[1] || '25565', 10);
-  
-  try {
-    const util = require('minecraft-server-util');
-    await util.status(verifyServerIP, verifyServerPort, { timeout: 2000 });
-    isOnline = true;
-  } catch (err: any) {
-    isOnline = false;
-    console.log('[DEBUG] Server is offline in Verify Account:', err?.message || err);
-  }
-
-  if (!isOnline) {
-    if (player) {
-      // They are registered but missing UUID. Just fetch from Mojang and update.
-      await interaction.deferReply({ ephemeral: true });
-      const { fetchMinecraftProfile } = require('../../services/minecraftService');
-      const profile = await fetchMinecraftProfile(player.minecraftUsername);
-      const uuid = profile?.id ?? 'offline-uuid-' + Date.now();
-      
-      await prisma.player.update({
-        where: { discordId },
-        data: { minecraftUuid: uuid }
-      });
-      
-      const successEmbed = new EmbedBuilder()
-        .setTitle('✅ Verified (Offline Mode)')
-        .setDescription(`The Minecraft server is currently offline, so we bypassed in-game verification.\nYour account is now linked to **${player.minecraftUsername}**!`)
-        .setColor(COLORS.SUCCESS);
-      return interaction.editReply({ embeds: [successEmbed] });
-    }
-
-    // Fallback to manual registration for new users
-    const modal = new ModalBuilder()
-      .setCustomId('register_modal')
-      .setTitle('Verify Account (Server Offline)');
-
-    const usernameInput = new TextInputBuilder()
-      .setCustomId('minecraft_username')
-      .setLabel('Your Minecraft Username')
-      .setStyle(TextInputStyle.Short)
-      .setMinLength(3)
-      .setMaxLength(16)
-      .setPlaceholder('Server is offline. Manual link.')
-      .setRequired(true);
-
-    modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(usernameInput));
-    return interaction.showModal(modal);
-  }
-
   const modal = new ModalBuilder()
-    .setCustomId('verify_account_modal')
-    .setTitle('Minecraft Verification');
+    .setCustomId('register_modal')
+    .setTitle('Link Minecraft Account');
 
   const usernameInput = new TextInputBuilder()
     .setCustomId('minecraft_username')
@@ -424,7 +374,7 @@ export async function handleVerifyAccount(interaction: ButtonInteraction): Promi
     .setStyle(TextInputStyle.Short)
     .setMinLength(3)
     .setMaxLength(16)
-    .setPlaceholder('Enter your Minecraft Username')
+    .setPlaceholder('Enter your exact Minecraft IGN')
     .setRequired(true);
 
   modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(usernameInput));
