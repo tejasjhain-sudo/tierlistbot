@@ -40,6 +40,17 @@ export async function giveRegisteredRole(member: GuildMember): Promise<void> {
   await giveRole(member, roleIds.registered);
 }
 
+// ─── Remove Registered role ──────────────────────────────────────────────────
+export async function removeRegisteredRole(member: GuildMember): Promise<void> {
+  const roleIds = await getRoleIds(member.guild.id);
+  let roleId = roleIds.registered;
+  if (!roleId) {
+    const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'registered');
+    if (role) roleId = role.id;
+  }
+  await removeRole(member, roleId);
+}
+
 // ─── Give Authorised (Verified) role ──────────────────────────────────────────
 export async function giveAuthorisedRole(member: GuildMember): Promise<void> {
   const roleIds = await getRoleIds(member.guild.id);
@@ -49,6 +60,17 @@ export async function giveAuthorisedRole(member: GuildMember): Promise<void> {
     if (role) roleId = role.id;
   }
   await giveRole(member, roleId);
+}
+
+// ─── Remove Authorised role ──────────────────────────────────────────────────
+export async function removeAuthorisedRole(member: GuildMember): Promise<void> {
+  const roleIds = await getRoleIds(member.guild.id);
+  let roleId = roleIds.authorised || roleIds.verified;
+  if (!roleId) {
+    const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified');
+    if (role) roleId = role.id;
+  }
+  await removeRole(member, roleId);
 }
 
 // ─── Give Unauthorised role ──────────────────────────────────────────────────
@@ -164,14 +186,23 @@ export async function syncGuildMemberRoles(member: GuildMember): Promise<boolean
       where: { discordId: member.id },
       include: { tiers: true },
     });
-    if (!player) return false;
 
-    // 1. Give Authorised role and remove Unauthorised role
+    // If member has NOT verified via OAuth2, ensure they are locked to Unauthorised
+    if (!player || !player.discordAccessToken) {
+      await giveUnauthorisedRole(member);
+      await removeAuthorisedRole(member);
+      await removeRegisteredRole(member);
+      return false;
+    }
+
+    // 1. Verified via OAuth2: Give Authorised role and remove Unauthorised role
     await giveAuthorisedRole(member);
     await removeUnauthorisedRole(member);
 
-    // 2. Give Registered role
-    await giveRegisteredRole(member);
+    // 2. Give Registered role if they registered their Minecraft IGN
+    if (player.minecraftUsername) {
+      await giveRegisteredRole(member);
+    }
 
     // 3. Assign tier roles for each ranked gamemode
     if (player.tiers && player.tiers.length > 0) {

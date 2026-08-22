@@ -140,6 +140,11 @@ export default {
         type: OverwriteType.Role,
         deny: [PermissionFlagsBits.ViewChannel],
       },
+      {
+        id: registeredRole.id,
+        type: OverwriteType.Role,
+        deny: [PermissionFlagsBits.ViewChannel],
+      },
     ]);
 
     const verifyCh = await getOrCreateChannel(
@@ -167,11 +172,16 @@ export default {
           type: OverwriteType.Role,
           deny: [PermissionFlagsBits.ViewChannel],
         },
+        {
+          id: registeredRole.id,
+          type: OverwriteType.Role,
+          deny: [PermissionFlagsBits.ViewChannel],
+        },
       ]
     );
     channelIdMap.verifyChannel = verifyCh.id;
 
-    // Base permissions for public categories: hidden from @everyone & Unauthorised, visible to Authorised
+    // Base permissions for public categories: hidden from @everyone & Unauthorised, visible to Authorised & Registered
     const publicCatOverwrites: OverwriteResolvable[] = [
       {
         id: guild.roles.everyone.id,
@@ -185,6 +195,11 @@ export default {
       },
       {
         id: authorisedRole.id,
+        type: OverwriteType.Role,
+        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+      },
+      {
+        id: registeredRole.id,
         type: OverwriteType.Role,
         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
       },
