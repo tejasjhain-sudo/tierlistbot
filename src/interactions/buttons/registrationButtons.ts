@@ -402,32 +402,10 @@ export async function handleQueueRefresh(interaction: ButtonInteraction, mode: M
 export async function handleVerifyAccount(interaction: ButtonInteraction): Promise<any> {
   const discordId = interaction.user.id;
 
-  // 1. Check if the player is verified (has Authorised / Verified role)
-  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guild?.id || '' } });
-  const roleIds = (guildConfig?.roleIds as Record<string, any>) || {};
-  const authorisedRoleId = roleIds.authorised || roleIds.verified;
-  const member = interaction.guild?.members.cache.get(discordId);
-
-  const hasAuthorisedRole = authorisedRoleId
-    ? (member?.roles.cache.has(authorisedRoleId) ?? false)
-    : (member?.roles.cache.some(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified') ?? false);
-  const isServerAdmin = interaction.guild?.ownerId === discordId || (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false);
-
-  if (!hasAuthorisedRole && !isServerAdmin) {
-    const embed = new EmbedBuilder()
-      .setTitle('❌ Verification Required')
-      .setDescription(
-        'You must verify your account first before registering your Minecraft profile!\n\n' +
-        '👉 Please click **🛡️ Verify Account** in the panel above first.'
-      )
-      .setColor(COLORS.WARNING);
-
-    return interaction.reply({ embeds: [embed], ephemeral: true });
-  }
-
   const player = await prisma.player.findUnique({ where: { discordId } });
 
-  if (player && player.minecraftUsername && player.minecraftUsername !== `User_${discordId.slice(-4)}`) {
+  // If already registered with a valid Minecraft IGN and UUID
+  if (player && player.minecraftUuid && !player.minecraftUsername.startsWith('User_')) {
     const embed = new EmbedBuilder()
       .setTitle('✅ Already Registered')
       .setThumbnail(getPlayerHeadUrl(player.minecraftUuid ?? player.minecraftUsername))
@@ -437,7 +415,7 @@ export async function handleVerifyAccount(interaction: ButtonInteraction): Promi
         `🆔 **Minecraft UUID:** \`${player.minecraftUuid ?? 'N/A'}\`\n` +
         `🌍 **Region:** \`${player.region}\`\n` +
         `⚔️ **Preferred Mode:** \`${MODES[player.preferredMode as Mode] || player.preferredMode}\`\n\n` +
-        `_Need to change your details? Click **Update Account**._`
+        `_Need to change your details? Click **⚙️ Update Account**._`
       )
       .setColor(COLORS.SUCCESS);
     return interaction.reply({ embeds: [embed], ephemeral: true });

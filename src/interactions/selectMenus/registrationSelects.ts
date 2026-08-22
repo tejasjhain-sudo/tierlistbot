@@ -58,21 +58,25 @@ export async function handleRegisterMode(
   const finalUsername = profile?.name ?? mcUsername;
   const uuid = profile?.id ?? null;
 
-  // Check again for duplicate (race condition safety)
-  const existingByDiscord = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
-  if (existingByDiscord) {
-    await interaction.editReply({ content: '❌ You are already registered.', components: [], embeds: [] });
-    return;
-  }
+  // Check if username taken by someone else
   const existingByMc = await prisma.player.findUnique({ where: { minecraftUsernameLower: finalUsername.toLowerCase() } });
-  if (existingByMc) {
-    await interaction.editReply({ content: `❌ Username \`${finalUsername}\` is already taken.`, components: [], embeds: [] });
+  if (existingByMc && existingByMc.discordId !== interaction.user.id) {
+    await interaction.editReply({ content: `❌ Username \`${finalUsername}\` is already registered by another Discord user.`, components: [], embeds: [] });
     return;
   }
 
-  // Create player
-  const player = await prisma.player.create({
-    data: {
+  // Create or Update player profile (preserving OAuth backup tokens)
+  const player = await prisma.player.upsert({
+    where: { discordId: interaction.user.id },
+    update: {
+      minecraftUsername: finalUsername,
+      minecraftUsernameLower: finalUsername.toLowerCase(),
+      minecraftUuid: uuid,
+      region,
+      preferredMode: mode,
+      updatedAt: new Date(),
+    },
+    create: {
       discordId: interaction.user.id,
       minecraftUsername: finalUsername,
       minecraftUsernameLower: finalUsername.toLowerCase(),
@@ -82,9 +86,12 @@ export async function handleRegisterMode(
     },
   });
 
-  // Give registered role and waitlist role for preferred mode
+  // Give registered role, authorised role, and waitlist role for preferred mode
   try {
     const member = await interaction.guild.members.fetch(interaction.user.id);
+    const { giveRegisteredRole, giveAuthorisedRole, removeUnauthorisedRole, swapWaitlistRole } = require('../../services/roleService');
+    await giveAuthorisedRole(member);
+    await removeUnauthorisedRole(member);
     await giveRegisteredRole(member);
     await swapWaitlistRole(member, null, mode);
   } catch (e) {

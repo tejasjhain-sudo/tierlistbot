@@ -40,19 +40,20 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
     return;
   }
 
-  // Check if Discord user already registered
+  // Check if Discord user already registered with a real Minecraft account
   const existingByDiscord = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
-  if (existingByDiscord) {
+  const hasLinkedMinecraft = existingByDiscord && existingByDiscord.minecraftUuid && !existingByDiscord.minecraftUsername.startsWith('User_');
+  if (hasLinkedMinecraft) {
     await interaction.reply({
-      content: '❌ You are already registered. Use **Update Profile** to change your details.',
+      content: `❌ You are already registered as **${existingByDiscord.minecraftUsername}**. Click **⚙️ Update Account** if you wish to change your details.`,
       ephemeral: true,
     });
     return;
   }
 
-  // Check if username taken
+  // Check if username taken by another Discord user
   const existingByMc = await prisma.player.findUnique({ where: { minecraftUsernameLower: rawUsername.toLowerCase() } });
-  if (existingByMc) {
+  if (existingByMc && existingByMc.discordId !== interaction.user.id) {
     await interaction.reply({
       content: `❌ Minecraft username \`${rawUsername}\` is already registered by another user.`,
       ephemeral: true,

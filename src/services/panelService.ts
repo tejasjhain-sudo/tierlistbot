@@ -99,28 +99,25 @@ async function cleanDuplicateBotMessages(channel: TextChannel, keepMsgIds: strin
 // ─── Verification & Registration Panel (Sent to #request-test) ───────────────
 export function buildRegistrationEmbed(guild: Guild): EmbedBuilder {
   return new EmbedBuilder()
-    .setTitle('🛡️ Server Verification & Registration')
+    .setTitle('📝 Tier Testing Registration')
     .setDescription(
-      `Welcome to **${guild.name}**!\n\n` +
-      `• Click **Verify Account** to unlock full server access, role backups, and testing waitlists.\n` +
-      `• Click **Register Minecraft IGN** to link your Minecraft username and join queue waitlists.\n\n` +
+      `Welcome to **${guild.name}** Tier Testing!\n\n` +
+      `• Click **Register Minecraft IGN** to link your Minecraft username and unlock queue access.\n` +
+      `• Click **Enter Waitlist** to select your kit queue and start testing.\n` +
+      `• Click **View Cooldown** to check your remaining wait time between tests.\n\n` +
       `🛑 **Failure to provide authentic information will result in a denied test.**`
     )
     .setColor('#990033')
-    .setFooter({ text: 'Arix Tierlist System • Instant Verification' })
+    .setFooter({ text: 'RearMC Tierlist System • Instant Registration' })
     .setTimestamp();
 }
 
 export function buildRegistrationComponents(): ActionRowBuilder<ButtonBuilder>[] {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId('verify_server_access')
-      .setLabel('🛡️ Verify Account')
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
       .setCustomId('verify_account')
       .setLabel('📝 Register Minecraft IGN')
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId('enter_waitlist')
       .setLabel('⚔️ Enter Waitlist')
@@ -132,6 +129,10 @@ export function buildRegistrationComponents(): ActionRowBuilder<ButtonBuilder>[]
     new ButtonBuilder()
       .setCustomId('action_start_update')
       .setLabel('⚙️ Update Account')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('my_profile')
+      .setLabel('👤 My Profile')
       .setStyle(ButtonStyle.Secondary)
   );
 
