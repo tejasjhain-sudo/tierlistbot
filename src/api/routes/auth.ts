@@ -32,8 +32,20 @@ router.get('/callback', async (req, res) => {
     const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      console.error('Discord OAuth Token Error:', tokenData);
-      return res.status(400).send('Failed to get token from Discord.');
+      console.error('Discord OAuth Token Error Details:', JSON.stringify(tokenData, null, 2));
+      const reason = tokenData.error_description || tokenData.error || 'Unknown Discord OAuth error';
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+          <body style="background-color: #0f1117; color: #ffffff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;">
+            <div style="text-align: center; background-color: #1a1d26; padding: 40px; border-radius: 16px; border: 1px solid #ef4444; max-width: 480px;">
+              <h2 style="color: #ef4444;">❌ Discord Verification Error</h2>
+              <p style="color: #cbd5e1;">${reason}</p>
+              <p style="color: #94a3b8; font-size: 13px;">If you see <code>invalid_client</code>, the Discord Client Secret in .env needs to be updated.<br>If you see <code>invalid_grant</code>, the link expired — please click <b>Verify</b> in Discord again.</p>
+            </div>
+          </body>
+        </html>
+      `);
     }
 
     const { access_token, refresh_token, expires_in } = tokenData;
