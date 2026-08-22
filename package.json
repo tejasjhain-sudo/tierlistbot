@@ -1,6 +1,6 @@
 {
   "name": "rearmctierlist",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Minecraft Tierlist Discord Bot with SQLite and Auto-Updater",
   "main": "dist/index.js",
   "scripts": {
