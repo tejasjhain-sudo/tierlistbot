@@ -162,94 +162,88 @@ export async function handleCompleteTestModal(interaction: ModalSubmitInteractio
 }
 
 // ─── Verify Account Modal Submit ──────────────────────────────────────────────
+// ─── Verify Account Modal Submit (Direct & Instant) ───────────────────────────
 export async function handleVerifyAccountModal(interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
   const rawUsername = interaction.fields.getTextInputValue('minecraft_username').trim();
 
   if (!isValidMinecraftUsername(rawUsername)) {
-    await interaction.editReply({ content: '❌ Invalid Minecraft username format.' });
+    await interaction.editReply({ content: '❌ Invalid Minecraft username. It must be 3–16 characters and contain only letters, numbers, and underscores.' });
     return;
   }
 
-  // Ping the MC server to see if it's online
-  let isOnline = false;
-  const verifyServerIP = (process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[0];
-  const verifyServerPort = parseInt((process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[1] || '25565', 10);
-  
-  isOnline = await new Promise((resolve) => {
-    const util = require('minecraft-server-util');
-    util.status(verifyServerIP, verifyServerPort, { timeout: 2000 })
-      .then(() => resolve(true))
-      .catch(() => resolve(false));
+  // Check if username taken by another Discord user
+  const existingByMc = await prisma.player.findUnique({ where: { minecraftUsernameLower: rawUsername.toLowerCase() } });
+  if (existingByMc && existingByMc.discordId !== interaction.user.id) {
+    await interaction.editReply({ content: `❌ Minecraft username \`${rawUsername}\` is already linked to another Discord account.` });
+    return;
+  }
+
+  const { fetchMinecraftProfile, getPlayerHeadUrl } = require('../../services/minecraftService');
+  const profile = await fetchMinecraftProfile(rawUsername);
+  const uuid = profile?.id ?? null;
+  const finalUsername = profile?.name ?? rawUsername;
+
+  const player = await prisma.player.upsert({
+    where: { discordId: interaction.user.id },
+    create: {
+      discordId: interaction.user.id,
+      minecraftUsername: finalUsername,
+      minecraftUsernameLower: finalUsername.toLowerCase(),
+      minecraftUuid: uuid,
+      region: 'AS',
+      preferredMode: 'sword',
+    },
+    update: {
+      minecraftUsername: finalUsername,
+      minecraftUsernameLower: finalUsername.toLowerCase(),
+      minecraftUuid: uuid,
+      updatedAt: new Date(),
+    }
   });
 
-  if (!isOnline) {
-    const { fetchMinecraftProfile } = require('../../services/minecraftService');
-    const profile = await fetchMinecraftProfile(rawUsername);
-    const uuid = profile?.id ?? 'offline-uuid-' + Date.now();
-    const finalUsername = profile?.name ?? rawUsername;
-    
-    await prisma.player.upsert({
-      where: { discordId: interaction.user.id },
-      create: {
-        discordId: interaction.user.id,
-        minecraftUsername: finalUsername,
-        minecraftUsernameLower: finalUsername.toLowerCase(),
-        minecraftUuid: uuid,
-        region: 'NA',
-        preferredMode: 'sword',
-      },
-      update: {
-        minecraftUsername: finalUsername,
-        minecraftUsernameLower: finalUsername.toLowerCase(),
-        minecraftUuid: uuid,
-      }
-    });
-    
-    const successEmbed = new EmbedBuilder()
-      .setTitle('✅ Verified (Offline Mode)')
-      .setDescription(`The Minecraft server is currently offline, so we bypassed in-game verification.\nYour account is now linked to **${finalUsername}**!`)
-      .setColor(COLORS.SUCCESS);
-    await interaction.editReply({ embeds: [successEmbed] });
+  // Assign Authorised and Registered roles
+  if (interaction.guild) {
+    try {
+      const member = await interaction.guild.members.fetch(interaction.user.id);
+      const { giveRegisteredRole, giveAuthorisedRole, removeUnauthorisedRole } = require('../../services/roleService');
+      await giveAuthorisedRole(member);
+      await removeUnauthorisedRole(member);
+      await giveRegisteredRole(member);
+    } catch (e) {
+      console.error('Failed to assign roles on verify account modal:', e);
+    }
+  }
 
+  const successEmbed = new EmbedBuilder()
+    .setTitle('✅ Minecraft Account Linked!')
+    .setThumbnail(getPlayerHeadUrl(uuid ?? finalUsername))
+    .setDescription(
+      `Your Discord account has been successfully linked to **${finalUsername}**!\n\n` +
+      `🎮 **Minecraft IGN:** \`${finalUsername}\`\n` +
+      `🆔 **UUID:** \`${uuid ?? 'N/A'}\`\n` +
+      `🌍 **Region:** \`${player.region}\`\n\n` +
+      `You now have full access to testing waitlists and queue channels.`
+    )
+    .setColor(COLORS.SUCCESS)
+    .setTimestamp();
+
+  await interaction.editReply({ embeds: [successEmbed] });
+
+  if (interaction.guild) {
     try {
       const { logToChannel } = require('../../utils/logger');
       const logEmbed = new EmbedBuilder()
-        .setTitle('👤 New Player Verified (Offline)')
-        .setDescription(`<@${interaction.user.id}> has linked their account to **${finalUsername}**.`)
+        .setTitle('👤 Minecraft Account Linked')
+        .setDescription(`<@${interaction.user.id}> linked Minecraft IGN **${finalUsername}**.`)
         .setColor(COLORS.SUCCESS)
         .setTimestamp();
-      await logToChannel(interaction.client, interaction.guildId, logEmbed);
-    } catch (e) { console.error('Logger error:', e); }
-
-    return;
+      await logToChannel(interaction.client, interaction.guild.id, logEmbed);
+    } catch {}
   }
-
-  const { createVerificationSession, pendingInteractions } = require('../../services/verificationService');
-  const session = await createVerificationSession(interaction.user.id, rawUsername);
-  const verifyServer = process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003';
-
-  console.log(`[DEBUG] Sending ONLINE verification embed to user ${interaction.user.id} with token ${session.token}`);
-
-  pendingInteractions.set(session.token, interaction);
-
-  const embed = new EmbedBuilder()
-    .setTitle('🔐 Minecraft Account Verification')
-    .setDescription(
-      `To link your Minecraft account, follow these steps:\n\n` +
-      `1️⃣ Join the verification server:\n\`${verifyServer}\`\n\n` +
-      `2️⃣ In Minecraft chat, type:\n\`/verify ${session.token}\`\n\n` +
-      `**Verification Token:** \`${session.token}\`\n` +
-      `**Expected IGN:** \`${rawUsername}\`\n` +
-      `**Status:** ⏳ Waiting for connection...\n\n` +
-      `⏰ *Verification token expires in 10 minutes.*`
-    )
-    .setColor(COLORS.PRIMARY);
-
-  await interaction.editReply({ embeds: [embed] });
 }
 
-// ─── Update Account Modal Submit ──────────────────────────────────────────────
+// ─── Update Account Modal Submit (Direct & Instant) ───────────────────────────
 export async function handleUpdateAccountModal(interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
   const rawUsername = interaction.fields.getTextInputValue('minecraft_username').trim();
@@ -259,61 +253,39 @@ export async function handleUpdateAccountModal(interaction: ModalSubmitInteracti
     return;
   }
 
-  // Ping the MC server to see if it's online
-  let isOnline = false;
-  const verifyServerIP = (process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[0];
-  const verifyServerPort = parseInt((process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003').split(':')[1] || '25565', 10);
-  
-  isOnline = await new Promise((resolve) => {
-    const util = require('minecraft-server-util');
-    util.status(verifyServerIP, verifyServerPort, { timeout: 2000 })
-      .then(() => resolve(true))
-      .catch(() => resolve(false));
-  });
-
-  if (!isOnline) {
-    const { fetchMinecraftProfile } = require('../../services/minecraftService');
-    const profile = await fetchMinecraftProfile(rawUsername);
-    const uuid = profile?.id ?? 'offline-uuid-' + Date.now();
-    const finalUsername = profile?.name ?? rawUsername;
-    
-    await prisma.player.update({
-      where: { discordId: interaction.user.id },
-      data: {
-        minecraftUsername: finalUsername,
-        minecraftUsernameLower: finalUsername.toLowerCase(),
-        minecraftUuid: uuid,
-        lastIgnUpdateAt: new Date()
-      }
-    });
-    
-    const successEmbed = new EmbedBuilder()
-      .setTitle('🔄 Account Updated (Offline Mode)')
-      .setDescription(`The Minecraft server is currently offline, so we bypassed in-game verification.\nYour account is now linked to **${finalUsername}**!`)
-      .setColor(COLORS.SUCCESS);
-    await interaction.editReply({ embeds: [successEmbed] });
+  // Check if username taken by another Discord user
+  const existingByMc = await prisma.player.findUnique({ where: { minecraftUsernameLower: rawUsername.toLowerCase() } });
+  if (existingByMc && existingByMc.discordId !== interaction.user.id) {
+    await interaction.editReply({ content: `❌ Minecraft username \`${rawUsername}\` is already registered by another user.` });
     return;
   }
 
-  const { createVerificationSession, pendingInteractions } = require('../../services/verificationService');
-  const session = await createVerificationSession(interaction.user.id, rawUsername);
-  const verifyServer = process.env.MINECRAFT_VERIFY_SERVER || 'verify.rearmc.fun:2003';
+  const { fetchMinecraftProfile, getPlayerHeadUrl } = require('../../services/minecraftService');
+  const profile = await fetchMinecraftProfile(rawUsername);
+  const uuid = profile?.id ?? null;
+  const finalUsername = profile?.name ?? rawUsername;
 
-  pendingInteractions.set(`update_${session.token}`, interaction);
-  pendingInteractions.set(session.token, interaction);
+  const player = await prisma.player.update({
+    where: { discordId: interaction.user.id },
+    data: {
+      minecraftUsername: finalUsername,
+      minecraftUsernameLower: finalUsername.toLowerCase(),
+      minecraftUuid: uuid,
+      lastIgnUpdateAt: new Date(),
+      updatedAt: new Date(),
+    }
+  });
 
-  const embed = new EmbedBuilder()
-    .setTitle('🔄 Update Minecraft Account')
+  const successEmbed = new EmbedBuilder()
+    .setTitle('🔄 Minecraft Account Updated!')
+    .setThumbnail(getPlayerHeadUrl(uuid ?? finalUsername))
     .setDescription(
-      `To update your linked Minecraft account, follow these steps:\n\n` +
-      `1️⃣ Join the verification server:\n\`${verifyServer}\`\n\n` +
-      `2️⃣ In Minecraft chat, type:\n\`/verify ${session.token}\`\n\n` +
-      `**Verification Token:** \`${session.token}\`\n` +
-      `**Expected IGN:** \`${rawUsername}\`\n` +
-      `**Status:** ⏳ Waiting for connection...\n\n` +
-      `⏰ *Token expires in 10 minutes.*`
+      `Your linked Minecraft account has been updated to **${finalUsername}**!\n\n` +
+      `🎮 **Minecraft IGN:** \`${finalUsername}\`\n` +
+      `🆔 **UUID:** \`${uuid ?? 'N/A'}\``
     )
-    .setColor(COLORS.PRIMARY);
+    .setColor(COLORS.SUCCESS)
+    .setTimestamp();
 
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [successEmbed] });
 }
