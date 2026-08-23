@@ -397,7 +397,7 @@ export async function completeTest(
   try {
     const member = await guild.members.fetch(player.discordId);
     await member.send(
-      `🏆 Your tier test is complete!\n**Mode:** ${mode}\n**Result:** \`${earnedTier}\`\n\nCongratulations! Your tier has been updated on RearMC Tierlist.`
+      `🏆 Your tier test is complete!\n**Mode:** ${mode}\n**Result:** \`${earnedTier}\`\n\nCongratulations! Your tier has been updated on Arix Tierlist.`
     );
   } catch {}
 

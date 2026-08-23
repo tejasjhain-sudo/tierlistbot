@@ -10,7 +10,7 @@ import { getPlayerHeadUrl } from '../../services/minecraftService';
 export default {
   data: new SlashCommandBuilder()
     .setName('profile')
-    .setDescription('View a player\'s RearMC Tierlist profile.')
+    .setDescription('View a player\'s Arix Tierlist profile.')
     .addUserOption(opt =>
       opt
         .setName('user')
@@ -61,7 +61,7 @@ export default {
       const bodyUrl = `https://mc-heads.net/body/${encodeURIComponent(player.minecraftUuid ?? player.minecraftUsername)}/128`;
 
       const embed = new EmbedBuilder()
-        .setTitle(`🎮 RearMC Player Profile — ${player.minecraftUsername}`)
+        .setTitle(`🎮 Arix Player Profile — ${player.minecraftUsername}`)
         .setThumbnail(avatarUrl)
         .addFields(
           { name: 'Minecraft IGN', value: `\`${player.minecraftUsername}\``, inline: true },

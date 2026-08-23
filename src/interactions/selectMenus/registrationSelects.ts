@@ -100,7 +100,7 @@ export async function handleRegisterMode(
 
   const embed = new EmbedBuilder()
     .setTitle('✅ Registration Complete!')
-    .setDescription(`Welcome to **RearMC Tier Testing**, **${finalUsername}**!\n\nYour profile has been saved. To enter testing, select a gamemode role or click **Join Queue** on an open testing waitlist panel.`)
+    .setDescription(`Welcome to **Arix Tier Testing**, **${finalUsername}**!\n\nYour profile has been saved. To enter testing, select a gamemode role or click **Join Queue** on an open testing waitlist panel.`)
     .addFields(
       { name: '🎮 Minecraft Username', value: `\`${finalUsername}\``, inline: true },
       { name: '🌍 Region', value: `\`${region}\``, inline: true },

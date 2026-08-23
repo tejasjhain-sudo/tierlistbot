@@ -81,7 +81,7 @@ export default {
         `📋 **Recently Verified Players:**\n${recentList}`
       )
       .setColor(COLORS.PRIMARY)
-      .setFooter({ text: 'RearMC Verification Tracking' })
+      .setFooter({ text: 'Arix Verification Tracking' })
       .setTimestamp();
 
     return interaction.editReply({ embeds: [embed] });
