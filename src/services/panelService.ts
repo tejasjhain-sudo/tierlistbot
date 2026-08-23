@@ -316,35 +316,76 @@ export async function sendOrUpdateAllWaitlistPanels(guild: Guild): Promise<void>
 // ─── Ping waitlist role when testing opens ────────────────────────────────────
 export async function pingTestingOpen(guild: Guild, mode: Mode, testerDiscordId: string): Promise<void> {
   const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-  if (!guildConfig) return;
+  const channelIds = (guildConfig?.channelIds as Record<string, any>) || {};
+  const roleIds = (guildConfig?.roleIds as Record<string, any>) || {};
 
-  const channelIds = guildConfig.channelIds as Record<string, any>;
-  const roleIds = guildConfig.roleIds as Record<string, any>;
+  let waitlistChannelId = channelIds?.waitlists?.[mode];
+  let channel: TextChannel | undefined;
 
-  const waitlistChannelId = channelIds?.waitlists?.[mode];
-  const waitlistRoleId = roleIds?.waitlists?.[mode];
-
-  if (!waitlistChannelId) return;
-
-  const channel = guild.channels.cache.get(waitlistChannelId) as TextChannel | undefined;
-  if (!channel) return;
-
-  const rolePing = waitlistRoleId ? `<@&${waitlistRoleId}>` : '';
-
-  const panelMessageIds = guildConfig.panelMessageIds as Record<string, any>;
-  const closedMsgId = panelMessageIds?.waitlists?.[mode];
-  if (closedMsgId) {
-    try {
-      const oldMsg = await channel.messages.fetch(closedMsgId);
-      await oldMsg.delete();
-    } catch {}
+  if (waitlistChannelId) {
+    channel = (guild.channels.cache.get(waitlistChannelId) || await guild.channels.fetch(waitlistChannelId).catch(() => null)) as TextChannel | undefined;
   }
 
-  const msg = await channel.send(
-    `${rolePing} 🟢 **Testing is now OPEN!** <@${testerDiscordId}> has started testing **${MODES[mode]}**. Join the queue now!`
-  );
+  const modeAliases: Record<Mode, string[]> = {
+    sword: ['sword', 'sword-waitlist'],
+    axe: ['axe', 'axe-waitlist'],
+    nethpot: ['nethpot', 'netherite-potion', 'netherite-pot', 'neth-pot'],
+    dpot: ['dpot', 'diamond-potion', 'diamond-pot', 'dia-pot'],
+    uhc: ['uhc', 'uhc-waitlist'],
+    smp: ['smp', 'smp-waitlist'],
+    crystal: ['crystal', 'crystal-waitlist', 'cpvp'],
+    mace: ['mace', 'mace-waitlist'],
+  };
 
-  await setPanelMsgId(guild.id, ['waitlists', mode], null);
+  if (!channel) {
+    const searchKeywords = modeAliases[mode] || [mode];
+    channel = guild.channels.cache.find(c =>
+      c.isTextBased() && searchKeywords.some(keyword => c.name.toLowerCase().includes(keyword))
+    ) as TextChannel | undefined;
+
+    if (channel && guildConfig) {
+      channelIds.waitlists = channelIds.waitlists || {};
+      channelIds.waitlists[mode] = channel.id;
+      await prisma.guildConfig.update({
+        where: { guildId: guild.id },
+        data: { channelIds },
+      });
+    }
+  }
+
+  if (!channel) return;
+
+  // Find waitlist role
+  let waitlistRoleId = roleIds?.waitlists?.[mode];
+  let waitlistRole = waitlistRoleId ? guild.roles.cache.get(waitlistRoleId) : null;
+
+  if (!waitlistRole) {
+    const searchKeywords = modeAliases[mode] || [mode];
+    waitlistRole = guild.roles.cache.find(r =>
+      searchKeywords.some(kw => r.name.toLowerCase().includes(kw)) &&
+      (r.name.toLowerCase().includes('waitlist') || r.name.toLowerCase().includes('queue') || r.name.toLowerCase().includes('ping'))
+    ) || guild.roles.cache.find(r => searchKeywords.some(kw => r.name.toLowerCase().includes(kw))) || null;
+
+    if (waitlistRole && guildConfig) {
+      roleIds.waitlists = roleIds.waitlists || {};
+      roleIds.waitlists[mode] = waitlistRole.id;
+      await prisma.guildConfig.update({
+        where: { guildId: guild.id },
+        data: { roleIds },
+      });
+    }
+  }
+
+  // Update waitlist panel so button turns green immediately
+  await sendOrUpdateWaitlistPanel(guild, mode);
+
+  const rolePing = waitlistRole ? `<@&${waitlistRole.id}>` : '';
+
+  const msg = await channel.send({
+    content: `${rolePing ? `${rolePing} ` : ''}🟢 **Testing is now OPEN!** <@${testerDiscordId}> is actively testing **${MODES[mode]}**! Join the queue now!`,
+    allowedMentions: waitlistRole ? { roles: [waitlistRole.id], users: [testerDiscordId] } : { parse: ['everyone', 'roles', 'users'] },
+  });
+
   await setPanelMsgId(guild.id, ['openPings', mode], msg.id);
 }
 
@@ -352,57 +393,31 @@ export async function pingTestingOpen(guild: Guild, mode: Mode, testerDiscordId:
 export async function pingTestingClosed(
   guild: Guild,
   mode: Mode,
-  reason: string = 'Queue manually ended by command'
+  reason: string = 'Queue closed by tester'
 ): Promise<void> {
   const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-  if (!guildConfig) return;
+  const channelIds = (guildConfig?.channelIds as Record<string, any>) || {};
+  let waitlistChannelId = channelIds?.waitlists?.[mode];
 
-  const channelIds = guildConfig.channelIds as Record<string, any>;
-  const waitlistChannelId = channelIds?.waitlists?.[mode];
-  if (!waitlistChannelId) return;
-
-  const channel = guild.channels.cache.get(waitlistChannelId) as TextChannel | undefined;
-  if (!channel) return;
-
-  const panelMessageIds = guildConfig.panelMessageIds as Record<string, any>;
-  const openPingId = panelMessageIds?.openPings?.[mode];
-  if (openPingId) {
-    try {
-      const oldPing = await channel.messages.fetch(openPingId);
-      await oldPing.delete();
-    } catch {}
-    await setPanelMsgId(guild.id, ['openPings', mode], null);
+  let channel: TextChannel | undefined;
+  if (waitlistChannelId) {
+    channel = (guild.channels.cache.get(waitlistChannelId) || await guild.channels.fetch(waitlistChannelId).catch(() => null)) as TextChannel | undefined;
   }
 
-  const existingWaitlistPanelId = panelMessageIds?.waitlists?.[mode];
-  if (existingWaitlistPanelId) {
-    try {
-      const oldPanel = await channel.messages.fetch(existingWaitlistPanelId);
-      await oldPanel.delete();
-    } catch {}
-    await setPanelMsgId(guild.id, ['waitlists', mode], null);
-  }
-
-  try {
-    const recent = await channel.messages.fetch({ limit: 15 });
-    const botMessages = Array.from(recent.values()).filter(m => m.author.id === channel.client.user?.id);
-    for (const bMsg of botMessages) {
-      try { await bMsg.delete(); } catch {}
+  if (channel) {
+    const panelMessageIds = (guildConfig?.panelMessageIds as Record<string, any>) || {};
+    const openPingId = panelMessageIds?.openPings?.[mode];
+    if (openPingId) {
+      try {
+        const pingMsg = await channel.messages.fetch(openPingId);
+        await pingMsg.delete();
+      } catch {}
+      await setPanelMsgId(guild.id, ['openPings', mode], null);
     }
-  } catch {}
+  }
 
-  const embed = new EmbedBuilder()
-    .setTitle(`🛑 ${MODES[mode]} Testing Closed`)
-    .setDescription(
-      `Testing for **${MODES[mode]}** has ended.\n\n` +
-      `**Reason:** ${reason}\n\n` +
-      `_You will be pinged automatically when a tester opens the queue again!_`
-    )
-    .setColor(COLORS.DANGER)
-    .setTimestamp();
-
-  const msg = await channel.send({ embeds: [embed] });
-  await setPanelMsgId(guild.id, ['waitlists', mode], msg.id);
+  // Refresh waitlist panel to show closed state
+  await sendOrUpdateWaitlistPanel(guild, mode);
 }
 
 // ─── Support Panel ────────────────────────────────────────────────────────────
