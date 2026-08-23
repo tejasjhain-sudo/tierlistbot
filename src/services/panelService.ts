@@ -99,13 +99,13 @@ async function cleanDuplicateBotMessages(channel: TextChannel, keepMsgIds: strin
 // ─── Verification & Registration Panel (Sent to #request-test) ───────────────
 export function buildRegistrationEmbed(guild: Guild): EmbedBuilder {
   return new EmbedBuilder()
-    .setTitle('📝 Tier Testing Registration')
+    .setTitle('📝 Server Verification & Registration')
     .setDescription(
-      `Welcome to **${guild.name}** Tier Testing!\n\n` +
+      `Welcome to **${guild.name}**!\n\n` +
       `• Click **Register Minecraft IGN** to link your Minecraft username and unlock queue access.\n` +
       `• Click **Enter Waitlist** to select your kit queue and start testing.\n` +
       `• Click **View Cooldown** to check your remaining wait time between tests.\n\n` +
-      `🛑 **Failure to provide authentic information will result in a denied test.**`
+      `🛑 **Failure to provide authentic information will result in a denied test and queue blacklist.**`
     )
     .setColor('#990033')
     .setFooter({ text: 'Arix Tierlist System • Instant Registration' })

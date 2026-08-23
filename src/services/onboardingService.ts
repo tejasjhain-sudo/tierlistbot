@@ -33,7 +33,7 @@ export async function sendMemberOnboarding(member: GuildMember): Promise<void> {
       )
       .setColor(COLORS.PRIMARY)
       .setThumbnail(member.guild.iconURL() || member.user.displayAvatarURL())
-      .setFooter({ text: 'RearMC Automated Onboarding System' })
+      .setFooter({ text: 'Arix Automated Onboarding System' })
       .setTimestamp();
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
