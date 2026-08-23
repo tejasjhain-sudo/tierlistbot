@@ -412,9 +412,9 @@ export async function sendOrUpdateSupportPanel(guild: Guild): Promise<void> {
       if (!channel) return;
 
       const embed = new EmbedBuilder()
-        .setTitle('🛠️ Arix Server Support')
+        .setTitle('🛠️ RearMC Server Support')
         .setDescription(
-          `Need assistance from the Arix Support Team?\n\n` +
+          `Need assistance from the RearMC Support Team?\n\n` +
           `• **General Queries & Help**\n` +
           `• **Tier Rank Verification Issues**\n` +
           `• **Bug Reports & Feedback**\n\n` +
@@ -472,7 +472,7 @@ export async function sendOrUpdateTesterAppPanel(guild: Guild): Promise<void> {
       const embed = new EmbedBuilder()
         .setTitle('📝 Tier Tester Applications')
         .setDescription(
-          `Want to join the Arix Tierlist Staff Team as an official **Tier Tester**?\n\n` +
+          `Want to join the RearMC Tierlist Staff Team as an official **Tier Tester**?\n\n` +
           `• **Requirements:** Authentic gameplay knowledge, activity, and objective testing.\n` +
           `• **Responsibilities:** Evaluate players in queue, issue accurate tiers, and update test logs.\n\n` +
           `Click **Apply for Tester** below to submit your application!`

@@ -186,7 +186,7 @@ export default {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle('👥 Arix Tier Staff')
+        .setTitle('👥 RearMC Tier Staff')
         .setDescription(lines.join('\n'))
         .setColor(COLORS.PRIMARY)
         .setTimestamp();

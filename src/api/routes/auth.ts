@@ -145,7 +145,7 @@ router.get('/callback', async (req, res) => {
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Verification Complete • Arix Tierlist</title>
+          <title>Verification Complete • RearMC Tierlist</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
         </head>
         <body style="background-color: #0f1117; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;">

@@ -21,7 +21,7 @@ export async function sendTesterApplicationPanel(guild: Guild, targetChannel: Te
   const embed = new EmbedBuilder()
     .setTitle('📝 Tier Tester Applications')
     .setDescription(
-      `Want to join the Arix Tierlist Staff Team as an official **Tier Tester**?\n\n` +
+      `Want to join the RearMC Tierlist Staff Team as an official **Tier Tester**?\n\n` +
       `• **Requirements:** Authentic gameplay knowledge, activity, and objective testing.\n` +
       `• **Responsibilities:** Evaluate players in queue, issue accurate tiers, and update test logs.\n\n` +
       `Click **Apply for Tester** below to submit your application!`

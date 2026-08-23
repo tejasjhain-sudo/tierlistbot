@@ -300,7 +300,7 @@ export async function handleQueueJoin(interaction: ButtonInteraction, mode: Mode
       if (!isMember) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Main Server Required')
-          .setDescription('You must be a member of the **Main Arix Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
+          .setDescription('You must be a member of the **Main RearMC Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
           .setColor(COLORS.DANGER);
           
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -538,7 +538,7 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
       if (!isMember) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Main Server Required')
-          .setDescription('You must be a member of the **Main Arix Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
+          .setDescription('You must be a member of the **Main RearMC Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
           .setColor(COLORS.DANGER);
           
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(

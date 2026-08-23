@@ -52,7 +52,7 @@ export default {
       .setTitle('📝 Staff Apply')
       .setDescription(
         '# STAFF REQUIREMENT\n\n' +
-        'Welcome to the applications panel of Arix Tierlist! If you are passionate about helping Arix Tierlist and contributing to its growth, you can apply for staff using the dropdown menu below.\n\n' +
+        'Welcome to the applications panel of RearMC Tierlist! If you are passionate about helping RearMC Tierlist and contributing to its growth, you can apply for staff using the dropdown menu below.\n\n' +
         'You can apply for:\n' +
         '**Staff Team**\n\n' +
         '• You must be at least 14 years of age.\n' +
@@ -68,7 +68,7 @@ export default {
 
     const selectOption = new StringSelectMenuOptionBuilder()
       .setLabel('Staff Team')
-      .setDescription('Apply to join the Arix staff team.')
+      .setDescription('Apply to join the RearMC staff team.')
       .setValue('staff_team_apply')
       .setEmoji('📝');
 

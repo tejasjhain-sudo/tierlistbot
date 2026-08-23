@@ -27,7 +27,7 @@ export async function printStartupBanner(): Promise<void> {
   ██╔══██║██╔══██╗██║ ██╔██╗        ██║   ██║██╔══╝  ██╔══██╗
   ██║  ██║██║  ██║██║██╔╝ ██╗       ██║   ██║███████╗██║  ██║
   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝       ╚═╝   ╚═╝╚══════╝╚═╝  ╚═╝
-          ⚔️  ARIX TIERLIST SYSTEM v${version}  ⚔️
+          ⚔️  REARMC TIERLIST SYSTEM v${version}  ⚔️
   ` + '\x1b[0m');
 
   console.log('\x1b[90m' + '─'.repeat(60) + '\x1b[0m');
