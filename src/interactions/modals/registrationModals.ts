@@ -18,12 +18,13 @@ import { COLORS, MODES, REGIONS, TIERS, Tier } from '../../config/constants';
 export async function handleRegisterModal(interaction: ModalSubmitInteraction): Promise<void> {
   if (!interaction.guild) return;
 
+  await interaction.deferReply({ ephemeral: true });
+
   const rawUsername = interaction.fields.getTextInputValue('minecraft_username').trim();
 
   if (!isValidMinecraftUsername(rawUsername)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: '❌ Invalid Minecraft username. It must be 3–16 characters and only contain letters, numbers, and underscores.',
-      ephemeral: true,
     });
     return;
   }
@@ -33,9 +34,8 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
     where: { guildId_discordId: { guildId: interaction.guild.id, discordId: interaction.user.id } }
   });
   if (blacklisted) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `❌ You are blacklisted from registering. Reason: ${blacklisted.reason}`,
-      ephemeral: true,
     });
     return;
   }
@@ -44,9 +44,8 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
   const existingByDiscord = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
   const hasLinkedMinecraft = existingByDiscord && existingByDiscord.minecraftUuid && !existingByDiscord.minecraftUsername.startsWith('User_');
   if (hasLinkedMinecraft) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `❌ You are already registered as **${existingByDiscord.minecraftUsername}**. Click **⚙️ Update Account** if you wish to change your details.`,
-      ephemeral: true,
     });
     return;
   }
@@ -54,9 +53,8 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
   // Check if username taken by another Discord user
   const existingByMc = await prisma.player.findUnique({ where: { minecraftUsernameLower: rawUsername.toLowerCase() } });
   if (existingByMc && existingByMc.discordId !== interaction.user.id) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `❌ Minecraft username \`${rawUsername}\` is already registered by another user.`,
-      ephemeral: true,
     });
     return;
   }
@@ -76,10 +74,9 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
     .setDescription(`Username: \`${rawUsername}\`\n\nSelect the region you play from:`)
     .setColor(COLORS.PRIMARY);
 
-  await interaction.reply({
+  await interaction.editReply({
     embeds: [embed],
     components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionSelect)],
-    ephemeral: true,
   });
 }
 
@@ -87,11 +84,13 @@ export async function handleRegisterModal(interaction: ModalSubmitInteraction): 
 export async function handleUpdateProfileModal(interaction: ModalSubmitInteraction): Promise<void> {
   if (!interaction.guild) return;
 
+  await interaction.deferReply({ ephemeral: true });
+
   const rawUsername = interaction.fields.getTextInputValue('minecraft_username').trim();
 
   const player = await prisma.player.findUnique({ where: { discordId: interaction.user.id } });
   if (!player) {
-    await interaction.reply({ content: '❌ You are not registered.', ephemeral: true });
+    await interaction.editReply({ content: '❌ You are not registered.' });
     return;
   }
 
@@ -100,7 +99,7 @@ export async function handleUpdateProfileModal(interaction: ModalSubmitInteracti
 
   if (rawUsername && rawUsername !== player.minecraftUsername) {
     if (!isValidMinecraftUsername(rawUsername)) {
-      await interaction.reply({ content: '❌ Invalid Minecraft username format.', ephemeral: true });
+      await interaction.editReply({ content: '❌ Invalid Minecraft username format.' });
       return;
     }
 
@@ -108,7 +107,7 @@ export async function handleUpdateProfileModal(interaction: ModalSubmitInteracti
       where: { minecraftUsernameLower: rawUsername.toLowerCase(), NOT: { discordId: interaction.user.id } },
     });
     if (taken) {
-      await interaction.reply({ content: `❌ Username \`${rawUsername}\` is already registered.`, ephemeral: true });
+      await interaction.editReply({ content: `❌ Username \`${rawUsername}\` is already registered.` });
       return;
     }
 
@@ -127,10 +126,9 @@ export async function handleUpdateProfileModal(interaction: ModalSubmitInteracti
       )
     );
 
-  await interaction.reply({
+  await interaction.editReply({
     content: `Updating profile for \`${finalUsername}\`. Select your new region:`,
     components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(regionSelect)],
-    ephemeral: true,
   });
 }
 
