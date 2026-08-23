@@ -192,34 +192,32 @@ export async function buildWaitlistEmbed(guild: Guild, mode: Mode): Promise<{ em
   const queueLimit = 20;
 
   let description = '';
-  description += `**Tester(s) Available!**\n\n`;
-  description += `Use /leave if you wish to be removed from the waitlist or queue.\n\n`;
+  if (isTestingOpen) {
+    description += `🟢 **Testing is OPEN! Tester(s) Available:**\n`;
+    activeTesters.forEach((tester) => {
+      description += `• <@${tester.discordId}>\n`;
+    });
+    description += `\nClick **Join Queue** below to enter the waitlist!\n\n`;
+  } else {
+    description += `🔴 **Testing is currently CLOSED.**\n_A tester will open this queue when available._\n\n`;
+  }
+
   description += `**Queue** (${queueEntries.length}/${queueLimit}):\n`;
 
   if (queueEntries.length === 0) {
-    description += `_No players currently in queue._\n\n`;
+    description += `_No players currently in queue._\n`;
   } else {
     queueEntries.forEach((entry, index) => {
       const ign = entry.player?.minecraftUsername ?? 'Unknown';
       description += `${index + 1}. **${ign}**\n`;
     });
-    description += '\n';
-  }
-
-  description += `**Active Testers:**\n`;
-  if (activeTesters.length === 0) {
-    description += `_No testers currently active._\n\n`;
-  } else {
-    activeTesters.forEach((tester) => {
-      description += `• <@${tester.discordId}>\n`;
-    });
-    description += '\n';
   }
 
   const embed = new EmbedBuilder()
     .setTitle(`⚔️ ${MODES[mode]} Tier Testing Waitlist`)
     .setDescription(description)
     .setColor(isTestingOpen ? COLORS.SUCCESS : COLORS.DANGER)
+    .setFooter({ text: 'Arix Tier Testing' })
     .setTimestamp();
 
   return { embed, isTestingOpen };
@@ -256,29 +254,47 @@ export async function sendOrUpdateWaitlistPanel(guild: Guild, mode: Mode): Promi
   const currentPromise = previousPromise.then(async () => {
     try {
       const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-      if (!guildConfig) return;
+      const channelIds = (guildConfig?.channelIds as Record<string, any>) || {};
+      let waitlistChannelId = channelIds?.waitlists?.[mode];
 
-      const channelIds = guildConfig.channelIds as Record<string, any>;
-      const waitlistChannelId = channelIds?.waitlists?.[mode];
-      if (!waitlistChannelId) return;
+      let channel: TextChannel | undefined;
+      if (waitlistChannelId) {
+        channel = (guild.channels.cache.get(waitlistChannelId) || await guild.channels.fetch(waitlistChannelId).catch(() => null)) as TextChannel | undefined;
+      }
 
-      const channel = guild.channels.cache.get(waitlistChannelId) as TextChannel | undefined;
+      // Auto-discover waitlist channel by name if not mapped
+      if (!channel) {
+        const modeAliases: Record<Mode, string[]> = {
+          sword: ['sword', 'sword-waitlist'],
+          axe: ['axe', 'axe-waitlist'],
+          nethpot: ['nethpot', 'netherite-potion', 'netherite-pot', 'neth-pot'],
+          dpot: ['dpot', 'diamond-potion', 'diamond-pot', 'dia-pot'],
+          uhc: ['uhc', 'uhc-waitlist'],
+          smp: ['smp', 'smp-waitlist'],
+          crystal: ['crystal', 'crystal-waitlist', 'cpvp'],
+          mace: ['mace', 'mace-waitlist'],
+        };
+
+        const searchKeywords = modeAliases[mode] || [mode];
+        channel = guild.channels.cache.find(c =>
+          c.isTextBased() && searchKeywords.some(keyword => c.name.toLowerCase().includes(keyword))
+        ) as TextChannel | undefined;
+
+        if (channel && guildConfig) {
+          channelIds.waitlists = channelIds.waitlists || {};
+          channelIds.waitlists[mode] = channel.id;
+          await prisma.guildConfig.update({
+            where: { guildId: guild.id },
+            data: { channelIds },
+          });
+        }
+      }
+
       if (!channel) return;
 
       const { embed, isTestingOpen } = await buildWaitlistEmbed(guild, mode);
-      const panelMessageIds = (guildConfig.panelMessageIds as Record<string, any>) || {};
+      const panelMessageIds = (guildConfig?.panelMessageIds as Record<string, any>) || {};
       const existingMsgId = panelMessageIds?.waitlists?.[mode];
-
-      if (!isTestingOpen) {
-        if (existingMsgId) {
-          try {
-            const existing = await channel.messages.fetch(existingMsgId);
-            await existing.delete();
-          } catch {}
-          await setPanelMsgId(guild.id, ['waitlists', mode], null);
-        }
-        return;
-      }
 
       const components = buildWaitlistButtons(mode, isTestingOpen);
       const msgId = await sendSinglePanel(channel, embed, components, existingMsgId);
