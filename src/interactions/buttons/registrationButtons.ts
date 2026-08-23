@@ -511,34 +511,14 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
     include: { tiers: true }
   });
 
-  // 1. Check if the player is verified (via OAuth in DB or Authorised/Registered role)
-  const member = await interaction.guild.members.fetch(discordId).catch(() => null);
-  const isVerifiedInDb = Boolean(player?.discordAccessToken);
-  const hasAuthorisedRole = member?.roles.cache.some(r =>
-    r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified' || r.name.toLowerCase() === 'registered'
-  ) ?? false;
-  const isServerAdmin = interaction.guild.ownerId === discordId || (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false);
-
-  if (!isVerifiedInDb && !hasAuthorisedRole && !isServerAdmin) {
-    const embed = new EmbedBuilder()
-      .setTitle('❌ Verification Required')
-      .setDescription(
-        'You must complete server verification first before joining the waitlist!\n\n' +
-        '👉 Please visit **🔒・verify** to verify your account.'
-      )
-      .setColor(COLORS.WARNING);
-
-    return interaction.editReply({ embeds: [embed] });
-  }
-
-  // 2. Check if they have linked their Minecraft IGN
+  // Check if they have registered their Minecraft IGN
   const hasLinkedIgn = player && player.minecraftUsername && !player.minecraftUsername.startsWith('User_');
   if (!hasLinkedIgn) {
     const embed = new EmbedBuilder()
-      .setTitle('📝 Minecraft IGN Required')
+      .setTitle('📝 Registration Required')
       .setDescription(
-        'You are verified on Discord! Next step is to link your **Minecraft In-Game Name (IGN)**.\n\n' +
-        '👉 Click **📝 Register Minecraft IGN** on the panel above to link your Minecraft profile!'
+        'You need to register your Minecraft account first before joining the waitlists!\n\n' +
+        '👉 Click **📝 Register Minecraft IGN** on the panel above to link your profile!'
       )
       .setColor(COLORS.PRIMARY);
     return interaction.editReply({ embeds: [embed] });

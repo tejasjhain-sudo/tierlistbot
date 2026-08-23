@@ -54,7 +54,7 @@ export async function sendSinglePanel(
     try {
       const existing = await channel.messages.fetch(knownMsgId);
       if (existing && existing.author.id === channel.client.user?.id) {
-        await existing.edit({ embeds: [embed], components });
+        await existing.edit({ embeds: [embed], components: (components && components.length > 0) ? components : [] });
         cleanDuplicateBotMessages(channel, [existing.id]).catch(() => {});
         return existing.id;
       }
@@ -78,7 +78,7 @@ export async function sendSinglePanel(
   } catch {}
 
   // 3. Send fresh panel
-  const newMsg = await channel.send({ embeds: [embed], components });
+  const newMsg = await channel.send({ embeds: [embed], components: (components && components.length > 0) ? components : [] });
   return newMsg.id;
 }
 
@@ -96,24 +96,31 @@ async function cleanDuplicateBotMessages(channel: TextChannel, keepMsgIds: strin
   } catch {}
 }
 
-// ─── Verification & Registration Panel (Sent to #request-test) ───────────────
+// ─── Evaluation Testing Waitlist & Registration Panel (Sent to #request-test) ───────────────
 export function buildRegistrationEmbed(guild: Guild): EmbedBuilder {
   return new EmbedBuilder()
-    .setTitle('📝 Server Verification & Registration')
+    .setTitle('⚔️ RearMC Tier Testing & Registration')
     .setDescription(
-      `Welcome to **${guild.name}**!\n\n` +
-      `• Click **Register Minecraft IGN** to link your Minecraft username and unlock queue access.\n` +
-      `• Click **Enter Waitlist** to select your kit queue and start testing.\n` +
-      `• Click **View Cooldown** to check your remaining wait time between tests.\n\n` +
-      `🛑 **Failure to provide authentic information will result in a denied test and queue blacklist.**`
+      `Welcome to **${guild.name}**!\n` +
+      `Link your Minecraft account below to unlock server waitlists, participate in tier evaluations, and earn official ranked tiers.\n\n` +
+      `### 📌 **Player Guidelines**\n` +
+      `> • **Region:** Choose the region of the server you test on (Asia / NA / EU).\n` +
+      `> • **Notification:** You will be automatically pinged when a tester opens a queue.\n` +
+      `> • **High Tiers:** Players with **HT3+** automatically qualify for High Tier testing.\n\n` +
+      `### ⚠️ **Important Notice**\n` +
+      `\`\`\`yaml\n` +
+      `Failure to provide authentic account details or dodging queues will result in a testing blacklist.\n` +
+      `\`\`\`\n` +
+      `_Select an action below to begin:_`
     )
-    .setColor('#990033')
-    .setFooter({ text: 'Arix Tierlist System • Instant Registration' })
+    .setColor('#5865F2')
+    .setThumbnail(guild.iconURL() || null)
+    .setFooter({ text: 'RearMC Tierlist System • Instant Registration' })
     .setTimestamp();
 }
 
 export function buildRegistrationComponents(): ActionRowBuilder<ButtonBuilder>[] {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('verify_account')
       .setLabel('📝 Register Minecraft IGN')
@@ -123,20 +130,23 @@ export function buildRegistrationComponents(): ActionRowBuilder<ButtonBuilder>[]
       .setLabel('⚔️ Enter Waitlist')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
+      .setCustomId('my_profile')
+      .setLabel('👤 My Profile')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
       .setCustomId('view_cooldown')
       .setLabel('⏳ View Cooldown')
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('action_start_update')
       .setLabel('⚙️ Update Account')
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('my_profile')
-      .setLabel('👤 My Profile')
       .setStyle(ButtonStyle.Secondary)
   );
 
-  return [row];
+  return [row1, row2];
 }
 
 export async function sendOrUpdateRegistrationPanel(guild: Guild): Promise<void> {
@@ -217,19 +227,22 @@ export async function buildWaitlistEmbed(guild: Guild, mode: Mode): Promise<{ em
     .setTitle(`⚔️ ${MODES[mode]} Tier Testing Waitlist`)
     .setDescription(description)
     .setColor(isTestingOpen ? COLORS.SUCCESS : COLORS.DANGER)
-    .setFooter({ text: 'Arix Tier Testing' })
+    .setFooter({ text: 'RearMC Tierlist • Queue Status' })
     .setTimestamp();
 
   return { embed, isTestingOpen };
 }
 
 export function buildWaitlistButtons(mode: Mode, isTestingOpen: boolean): ActionRowBuilder<ButtonBuilder>[] {
+  if (!isTestingOpen) {
+    return [];
+  }
+
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`queue_join_${mode}`)
-      .setLabel(isTestingOpen ? 'Join Queue' : 'Testing Closed')
-      .setStyle(isTestingOpen ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(!isTestingOpen),
+      .setLabel('🟢 Join Queue')
+      .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`queue_leave_${mode}`)
       .setLabel('Leave Queue')

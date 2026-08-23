@@ -2,6 +2,7 @@ import { Client, Guild, ActivityType } from 'discord.js';
 import prisma from '../database/prisma';
 import { sendOrUpdateAllServerPanels } from '../services/panelService';
 import { syncAllGuildMembers } from '../services/roleService';
+import { autoDetectChannelsAndEnsureRoles } from '../services/setupService';
 import { stopTesting } from '../services/testerService';
 import { SessionStatus } from '../config/constants';
 
@@ -11,7 +12,7 @@ export async function handleReady(client: Client): Promise<void> {
   client.user?.setPresence({
     status: 'online',
     activities: [{
-      name: 'Arix Tierlist | /register',
+      name: 'RearMC Tierlist | /register',
       type: ActivityType.Playing,
     }],
   });
@@ -19,7 +20,6 @@ export async function handleReady(client: Client): Promise<void> {
   for (const [, guild] of client.guilds.cache) {
     await restoreGuild(guild);
   }
-
 
   // Auto-close AFK queues (1 hour of inactivity)
   setInterval(async () => {
@@ -57,20 +57,16 @@ export async function handleReady(client: Client): Promise<void> {
 };
 
 async function restoreGuild(guild: Guild) {
-  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
-  if (!guildConfig) return;
+  console.log(`[${guild.name}] Restoring state & detecting channels...`);
 
-  console.log(`[${guild.name}] Restoring state...`);
-
-  // Wait a few seconds for Discord's cache to populate before restoring panels.
-  // This prevents false "Unknown Message" errors that would cause duplicate panels to be sent.
+  // Wait a few seconds for Discord's cache to populate
   await new Promise(resolve => setTimeout(resolve, 3000));
 
-  // Restore all panels (Registration, Support, Tester App, Waitlists)
+  // Auto-detect channels & ensure roles without deleting any existing channels/roles
   try {
-    await sendOrUpdateAllServerPanels(guild);
+    await autoDetectChannelsAndEnsureRoles(guild);
   } catch (e) {
-    console.error(`[${guild.name}] Failed to restore panels:`, e);
+    console.error(`[${guild.name}] Failed to auto-detect channels/roles:`, e);
   }
 
   // Automatically sync Registered & Tier roles for all members present

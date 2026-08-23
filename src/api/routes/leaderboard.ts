@@ -4,7 +4,40 @@ import { getLeaderboard } from '../../services/tierService';
 
 const router = Router();
 
-const VALID_MODES = ['sword', 'axe', 'nethpot', 'dpot', 'uhc', 'smp', 'crystal', 'mace'];
+const VALID_MODES: Mode[] = ['sword', 'axe', 'nethpot', 'dpot', 'uhc', 'smp', 'crystal', 'mace'];
+
+// GET /api/leaderboard (All modes summary)
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const region = req.query.region as Region | undefined;
+    const summaries: Record<string, any> = {};
+
+    await Promise.all(
+      VALID_MODES.map(async (m) => {
+        const result = await getLeaderboard(m as Mode, region, 1, 10);
+        summaries[m] = {
+          total: result.total,
+          top10: result.entries.map((e, i) => ({
+            rank: i + 1,
+            minecraftUsername: e.player.minecraftUsername,
+            discordId: e.player.discordId,
+            region: e.player.region,
+            tier: e.currentTier,
+            lastTestedAt: e.lastTestedAt,
+          })),
+        };
+      })
+    );
+
+    res.json({
+      modes: VALID_MODES,
+      data: summaries,
+    });
+  } catch (err: any) {
+    console.error('Error fetching global leaderboard:', err);
+    res.status(500).json({ error: 'Failed to fetch global leaderboard' });
+  }
+});
 
 // GET /api/leaderboard/:mode
 router.get('/:mode', async (req: Request, res: Response) => {

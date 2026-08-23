@@ -194,3 +194,126 @@ export async function runSetup(guild: Guild): Promise<string> {
 
   return logs.join('\n');
 }
+
+/**
+ * Auto-detects user-created channels and creates only missing roles (NEVER deletes any channel or role).
+ */
+export async function autoDetectChannelsAndEnsureRoles(guild: Guild): Promise<void> {
+  await guild.channels.fetch().catch(() => {});
+  await guild.roles.fetch().catch(() => {});
+
+  const channels = Array.from(guild.channels.cache.values());
+  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: guild.id } });
+
+  const channelIds: Record<string, any> = (guildConfig?.channelIds as Record<string, any>) || {};
+  const waitlists: Record<string, string> = channelIds.waitlists || {};
+  const roleIds: Record<string, any> = (guildConfig?.roleIds as Record<string, any>) || {};
+  const waitlistRoles: Record<string, string> = roleIds.waitlists || {};
+  const testerRoles: Record<string, string> = roleIds.testers || {};
+  const tierRoles: Record<string, Record<string, string>> = roleIds.tiers || {};
+
+  // Helper to find channel by keyword
+  const findChannel = (...keywords: string[]): TextChannel | undefined => {
+    return channels.find(
+      (c) =>
+        c.isTextBased() &&
+        keywords.some((k) => c.name.toLowerCase().includes(k.toLowerCase()))
+    ) as TextChannel | undefined;
+  };
+
+  // Helper to find or create role (never deletes)
+  async function getOrCreateRole(name: string, color?: number): Promise<Role> {
+    const existing = guild.roles.cache.find(r => r.name.toLowerCase() === name.toLowerCase());
+    if (existing) return existing;
+    try {
+      return await guild.roles.create({ name, color, reason: 'Auto-created missing tierlist role' });
+    } catch (e) {
+      console.warn(`Could not create role ${name}:`, e);
+      return existing || (guild.roles.cache.first() as Role);
+    }
+  }
+
+  // 1. Detect waitlist channels that user created
+  for (const [modeKey] of Object.entries(MODES)) {
+    const waitlistCh = findChannel(`waitlist-${modeKey}`, `${modeKey}-waitlist`, `waitlist_${modeKey}`, modeKey);
+    if (waitlistCh) {
+      waitlists[modeKey] = waitlistCh.id;
+    }
+  }
+  channelIds.waitlists = waitlists;
+
+  // 2. Detect core panel channels
+  const registerCh = findChannel('request-test', 'register', 'apply-test', 'verification');
+  if (registerCh) channelIds.register = registerCh.id;
+
+  const supportCh = findChannel('request-support', 'support', 'tickets');
+  if (supportCh) channelIds.requestSupport = supportCh.id;
+
+  const resultsCh = findChannel('results', 'tier-results');
+  if (resultsCh) channelIds.results = resultsCh.id;
+
+  const highResultsCh = findChannel('high-results', 'ht-results');
+  if (highResultsCh) channelIds.highResults = highResultsCh.id;
+
+  const applicationsCh = findChannel('applications', 'tester-apps');
+  if (applicationsCh) channelIds.applications = applicationsCh.id;
+
+  // 3. Ensure essential roles exist (never deletes existing roles)
+  const regRole = await getOrCreateRole('Registered', 0x2ECC71);
+  roleIds.registered = regRole.id;
+
+  const authRole = await getOrCreateRole('Authorised', 0x3498DB);
+  roleIds.authorised = authRole.id;
+
+  const unauthRole = await getOrCreateRole('Unauthorised', 0x95A5A6);
+  roleIds.unauthorised = unauthRole.id;
+
+  const testerRole = await getOrCreateRole('Tier Tester', 0x3498DB);
+  roleIds.tierTester = testerRole.id;
+
+  const adminRole = await getOrCreateRole('Tier Admin', 0xE74C3C);
+  roleIds.tierAdmin = adminRole.id;
+
+  // Gamemode waitlist & tester roles
+  for (const mode of MODE_LIST) {
+    const label = MODES[mode];
+    const wRole = await getOrCreateRole(`Waitlist ${label}`, 0x1ABC9C);
+    const tRole = await getOrCreateRole(`${label} Tester`, 0xE67E22);
+    waitlistRoles[mode] = wRole.id;
+    testerRoles[mode] = tRole.id;
+
+    // Gamemode tier roles
+    tierRoles[mode] = tierRoles[mode] || {};
+    for (const tier of TIERS) {
+      if (tier === 'Unranked') continue;
+      const tierRoleObj = await getOrCreateRole(`${label} ${tier}`);
+      tierRoles[mode][tier] = tierRoleObj.id;
+    }
+  }
+
+  roleIds.waitlists = waitlistRoles;
+  roleIds.testers = testerRoles;
+  roleIds.tiers = tierRoles;
+
+  // Save to database
+  await prisma.guildConfig.upsert({
+    where: { guildId: guild.id },
+    update: { channelIds, roleIds },
+    create: {
+      guildId: guild.id,
+      channelIds,
+      roleIds,
+      categoryIds: {},
+      panelMessageIds: {},
+    },
+  });
+
+  // Deploy panels only to the detected channels
+  try {
+    const { sendOrUpdateAllServerPanels } = await import('./panelService');
+    await sendOrUpdateAllServerPanels(guild);
+  } catch (err) {
+    console.error(`Error sending panels for ${guild.name}:`, err);
+  }
+}
+
