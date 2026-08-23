@@ -506,64 +506,41 @@ export async function handleEnterWaitlist(interaction: ButtonInteraction): Promi
   const discordId = interaction.user.id;
   if (!interaction.guild) return interaction.editReply({ content: '❌ Must be used in a server.' });
 
-  // 1. Check if the player is verified
-  const guildConfig = await prisma.guildConfig.findUnique({ where: { guildId: interaction.guild.id } });
-  const roleIds = (guildConfig?.roleIds as Record<string, any>) || {};
-  const authorisedRoleId = roleIds.authorised || roleIds.verified;
-  const member = interaction.guild.members.cache.get(discordId);
+  const player = await prisma.player.findUnique({
+    where: { discordId },
+    include: { tiers: true }
+  });
 
-  const hasAuthorisedRole = authorisedRoleId
-    ? (member?.roles.cache.has(authorisedRoleId) ?? false)
-    : (member?.roles.cache.some(r => r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified') ?? false);
+  // 1. Check if the player is verified (via OAuth in DB or Authorised/Registered role)
+  const member = await interaction.guild.members.fetch(discordId).catch(() => null);
+  const isVerifiedInDb = Boolean(player?.discordAccessToken);
+  const hasAuthorisedRole = member?.roles.cache.some(r =>
+    r.name.toLowerCase() === 'authorised' || r.name.toLowerCase() === 'verified' || r.name.toLowerCase() === 'registered'
+  ) ?? false;
   const isServerAdmin = interaction.guild.ownerId === discordId || (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false);
 
-  if (!hasAuthorisedRole && !isServerAdmin) {
+  if (!isVerifiedInDb && !hasAuthorisedRole && !isServerAdmin) {
     const embed = new EmbedBuilder()
       .setTitle('❌ Verification Required')
       .setDescription(
-        'You must verify your account first before joining the waitlist!\n\n' +
-        '👉 Please click **🛡️ Verify Account** in the panel above first.'
+        'You must complete server verification first before joining the waitlist!\n\n' +
+        '👉 Please visit **🔒・verify** to verify your account.'
       )
       .setColor(COLORS.WARNING);
 
     return interaction.editReply({ embeds: [embed] });
   }
 
-  // 2. Enforce Main Server Membership
-  const mainServerId = config.discordGuildId;
-  if (mainServerId && interaction.guild.id !== mainServerId) {
-    try {
-      const mainGuild = await interaction.client.guilds.fetch(mainServerId);
-      const isMember = await mainGuild.members.fetch(discordId).catch(() => null);
-      if (!isMember) {
-        const embed = new EmbedBuilder()
-          .setTitle('❌ Main Server Required')
-          .setDescription('You must be a member of the **Main RearMC Discord** to join the waitlist!\n\nPlease join using the link below, then try again.')
-          .setColor(COLORS.DANGER);
-          
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder().setLabel('Join Main Server').setStyle(ButtonStyle.Link).setURL('https://discord.gg/bFsSFjDmbs')
-        );
-        
-        return interaction.editReply({ embeds: [embed], components: [row] });
-      }
-    } catch (e) {
-      console.error('Failed to check main server membership:', e);
-    }
-  }
-
-  const player = await prisma.player.findUnique({
-    where: { discordId },
-    include: { tiers: true }
-  });
-  if (!player || !player.minecraftUsername || player.minecraftUsername === `User_${discordId.slice(-4)}`) {
+  // 2. Check if they have linked their Minecraft IGN
+  const hasLinkedIgn = player && player.minecraftUsername && !player.minecraftUsername.startsWith('User_');
+  if (!hasLinkedIgn) {
     const embed = new EmbedBuilder()
-      .setTitle('❌ Registration Required')
+      .setTitle('📝 Minecraft IGN Required')
       .setDescription(
-        'You need to register your Minecraft account first before joining the waitlist.\n\n' +
-        '👉 Please click **📝 Register Minecraft IGN** in the panel above!'
+        'You are verified on Discord! Next step is to link your **Minecraft In-Game Name (IGN)**.\n\n' +
+        '👉 Click **📝 Register Minecraft IGN** on the panel above to link your Minecraft profile!'
       )
-      .setColor(COLORS.DANGER);
+      .setColor(COLORS.PRIMARY);
     return interaction.editReply({ embeds: [embed] });
   }
 
